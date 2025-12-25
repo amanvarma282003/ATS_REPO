@@ -69,6 +69,7 @@ Do NOT invent information not present in the job description.
 ### OUTPUT SCHEMA ###
 {{
     "title": "extracted job title",
+    "company": "company/employer name or empty string",
     "required_competencies": [
         {{"name": "competency name", "description": "brief description"}}
     ],
@@ -85,20 +86,26 @@ Do NOT invent information not present in the job description.
 - Extract actual skills/technologies mentioned
 - Keep descriptions brief (1 sentence max)
 - Use consistent naming conventions
+- Derive the company name from any "About the company" or header text; if truly missing, return an empty string (do NOT fabricate a fantasy name)
 
 Output JSON only:
 """
         
         response_text = self._call_llm_with_retry(prompt)
+        clean_response = response_text.strip()
+        if clean_response.startswith('```'):
+            clean_response = re.sub(r'^```(?:json)?', '', clean_response, flags=re.IGNORECASE).strip()
+        if clean_response.endswith('```'):
+            clean_response = clean_response[:clean_response.rfind('```')].strip()
         
         # Extract JSON from response
         try:
             # Try to find JSON in response
-            start = response_text.find('{')
-            end = response_text.rfind('}') + 1
+            start = clean_response.find('{')
+            end = clean_response.rfind('}') + 1
             if start != -1 and end > start:
-                json_text = response_text[start:end]
-                parsed_data = json.loads(json_text)
+                json_text = clean_response[start:end]
+                parsed_data = json.loads(json_text, strict=False)
                 
                 # Validate required fields
                 if not isinstance(parsed_data.get('required_competencies'), list):
@@ -109,12 +116,17 @@ Output JSON only:
                     parsed_data['required_skills'] = []
                 if not isinstance(parsed_data.get('optional_skills'), list):
                     parsed_data['optional_skills'] = []
+                if not isinstance(parsed_data.get('company'), str):
+                    parsed_data['company'] = ''
                 
                 return parsed_data
             else:
                 raise ValueError("No valid JSON found in response")
         except json.JSONDecodeError as e:
-            raise Exception(f"Failed to parse LLM response as JSON: {str(e)}\nResponse: {response_text}")
+            preview = clean_response[:500]
+            raise Exception(
+                f"Failed to parse LLM response as JSON: {str(e)}\nResponse snippet: {preview}"
+            )
     
     def parse_resume(self, resume_text: str) -> Dict[str, Any]:
         """

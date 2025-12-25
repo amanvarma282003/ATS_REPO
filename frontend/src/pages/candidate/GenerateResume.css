@@ -83,3 +83,75 @@
   padding-left: 1.5rem;
   color: #7f8c8d;
 }
+
+.label-preview {
+  background: #fff7e6;
+  border-left: 4px solid #f39c12;
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+.label-preview-primary {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #b9770e;
+  margin: 0.25rem 0;
+}
+
+.label-preview-meta {
+  margin: 0;
+  color: #7f8c8d;
+}
+
+.history-section {
+  margin-top: 2.5rem;
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.history-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  background: #f8fbfd;
+  border: 1px solid #dde7f0;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  flex-wrap: wrap;
+}
+
+.history-meta h3 {
+  margin: 0 0 0.35rem;
+  color: #2c3e50;
+}
+
+.history-meta p {
+  margin: 0.15rem 0;
+  color: #7f8c8d;
+}
+
+.history-empty {
+  color: #95a5a6;
+  margin: 0;
+}

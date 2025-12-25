@@ -1,12 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { resumeService } from '../../services/resume.service';
+import {
+  GeneratedResumeRecord,
+  ResumeGenerationResponse,
+  ResumeLabelPreview,
+} from '../../types';
 import './GenerateResume.css';
 
 const GenerateResume: React.FC = () => {
   const [jdText, setJdText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ResumeGenerationResponse | null>(null);
   const [error, setError] = useState('');
+  const [labelPreview, setLabelPreview] = useState<ResumeLabelPreview | null>(null);
+  const [history, setHistory] = useState<GeneratedResumeRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState('');
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const response = await resumeService.getResumeHistory();
+      setHistory(response.resumes || []);
+    } catch (err) {
+      setHistoryError('Failed to load resume history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const handleGenerate = async () => {
     if (!jdText.trim()) {
@@ -14,13 +40,28 @@ const GenerateResume: React.FC = () => {
       return;
     }
 
+    const payload = { jd_text: jdText };
     setLoading(true);
     setError('');
     setResult(null);
+    setLabelPreview(null);
+
+    const labelPromise = resumeService
+      .previewLabel(payload)
+      .then((label) => {
+        setLabelPreview(label);
+        return label;
+      })
+      .catch((err) => {
+        console.error('Label preview failed', err);
+        return null;
+      });
 
     try {
-      const response = await resumeService.generateResume({ jd_text: jdText });
+      const response = await resumeService.generateResume(payload);
       setResult(response);
+      await labelPromise;
+      await loadHistory();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to generate resume');
     } finally {
@@ -28,15 +69,14 @@ const GenerateResume: React.FC = () => {
     }
   };
 
-  const handleDownload = async () => {
-    if (!result?.resume_id) return;
-
+  const handleDownload = async (resumeId: string, label?: string) => {
     try {
-      const blob = await resumeService.downloadResume(result.resume_id);
+      const blob = await resumeService.downloadResume(resumeId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const safeLabel = (label || `resume_${resumeId}`).replace(/[^a-z0-9]+/gi, '-').toLowerCase();
       a.href = url;
-      a.download = `resume_${result.resume_id}.pdf`;
+      a.download = `${safeLabel}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
@@ -71,13 +111,22 @@ const GenerateResume: React.FC = () => {
         <div className="error-message">{error}</div>
       )}
 
+      {labelPreview && (
+        <div className="label-preview">
+          <h2>Upcoming Resume Label</h2>
+          <p className="label-preview-primary">{labelPreview.display_label}</p>
+          <p className="label-preview-meta">
+            Version {labelPreview.next_version} · Base label: {labelPreview.base_label}
+          </p>
+        </div>
+      )}
+
       {result && (
         <div className="result-section">
           <h2>Resume Generated Successfully!</h2>
           <div className="result-details">
-            <p><strong>Resume ID:</strong> {result.resume_id}</p>
-            <p><strong>Attempt:</strong> {result.attempt} / 3</p>
-            <p><strong>PDF Path:</strong> {result.pdf_path}</p>
+            <p><strong>Label:</strong> {result.display_label}</p>
+            <p><strong>Version:</strong> {result.version}</p>
             
             {result.match_explanation && (
               <div className="match-explanation">
@@ -111,11 +160,51 @@ const GenerateResume: React.FC = () => {
             )}
           </div>
           
-          <button onClick={handleDownload} className="btn-primary">
+          <button
+            onClick={() => handleDownload(result.resume_id, result.display_label)}
+            className="btn-primary"
+          >
             Download PDF
           </button>
         </div>
       )}
+
+      <div className="history-section">
+        <div className="history-header">
+          <h2>Resume History</h2>
+          <button
+            className="btn-secondary"
+            onClick={() => loadHistory()}
+            disabled={historyLoading}
+          >
+            {historyLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
+        {historyError && <div className="error-message">{historyError}</div>}
+        {historyLoading && history.length === 0 ? (
+          <p className="history-empty">Loading history...</p>
+        ) : history.length === 0 ? (
+          <p className="history-empty">No resumes generated yet.</p>
+        ) : (
+          <ul className="history-list">
+            {history.map((record) => (
+              <li key={record.resume_id} className="history-card">
+                <div className="history-meta">
+                  <h3>{record.display_label}</h3>
+                  <p>{record.jd_title || 'Custom Role'}{record.jd_company ? ` @ ${record.jd_company}` : ''}</p>
+                  <p>Version {record.version} · {new Date(record.created_at).toLocaleString()}</p>
+                </div>
+                <button
+                  className="btn-primary"
+                  onClick={() => handleDownload(record.resume_id, record.display_label)}
+                >
+                  Download PDF
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };

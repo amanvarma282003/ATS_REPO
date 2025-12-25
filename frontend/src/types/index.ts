@@ -162,4 +162,29 @@ export interface ResumeGenerationResponse {
   application_id?: number;
   match_explanation?: any;
   attempt: number;
+  display_label: string;
+  version: number;
+  source: 'JOB' | 'JD_TEXT';
+}
+
+export interface ResumeLabelPreview {
+  base_label: string;
+  display_label: string;
+  next_version: number;
+}
+
+export interface GeneratedResumeRecord {
+  resume_id: string;
+  display_label: string;
+  version: number;
+  pdf_path: string;
+  source: 'JOB' | 'JD_TEXT';
+  created_at: string;
+  job_id?: number;
+  jd_title?: string;
+  jd_company?: string;
+}
+
+export interface ResumeHistoryResponse {
+  resumes: GeneratedResumeRecord[];
 }

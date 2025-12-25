@@ -2,20 +2,63 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Max
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
-from django.conf import settings
+from django.utils.text import slugify
+import logging
 import os
 import time
-import logging
 
-from candidates.models import CandidateProfile, Project, CandidateSkill
+from candidates.models import CandidateProfile
 from recruiters.models import JobDescription, Application
 from knowledge_graph.graph_engine import KnowledgeGraph
 from llm_service.gemini_service import llm_service
 from resume_engine.generator import resume_generator
+from .models import GeneratedResume
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_job_context(job_id, jd_text):
+    """Return (job, jd_data, source_enum) for generation/label flows."""
+    if job_id:
+        job = get_object_or_404(JobDescription, id=job_id)
+        jd_data = {
+            'id': job.id,
+            'title': job.title,
+            'company': job.company,
+            'description': job.description,
+            'required_competencies': job.competencies.get('required_competencies', []),
+            'optional_competencies': job.competencies.get('optional_competencies', []),
+        }
+        return job, jd_data, GeneratedResume.Source.JOB
+    if jd_text:
+        jd_data = llm_service.parse_job_description(jd_text)
+        jd_data['id'] = 'temp'
+        return None, jd_data, GeneratedResume.Source.JD_TEXT
+    raise ValueError('Either job_id or jd_text is required')
+
+
+def _build_label_metadata(candidate, jd_data):
+    role = (jd_data.get('title') or 'Custom Role').strip()
+    company = (jd_data.get('company') or 'Custom Company').strip()
+    base_label = f"{role} - {company}" if company else role
+    base_slug = slugify(base_label) or 'resume'
+    existing_max = GeneratedResume.objects.filter(
+        candidate=candidate,
+        base_slug=base_slug
+    ).aggregate(max_version=Max('version'))['max_version'] or 0
+    next_version = existing_max + 1
+    display_label = base_label if next_version == 1 else f"{base_label} - {next_version}"
+    return {
+        'base_label': base_label,
+        'base_slug': base_slug,
+        'next_version': next_version,
+        'display_label': display_label,
+    }
 
 
 class GenerateResumeView(APIView):
@@ -24,7 +67,7 @@ class GenerateResumeView(APIView):
     POST /api/resume/generate/
     """
     permission_classes = [IsAuthenticated]
-    MAX_RETRIES = 3
+    MAX_RETRIES = 10
     
     def post(self, request):
         # Retry entire generation pipeline
@@ -51,28 +94,12 @@ class GenerateResumeView(APIView):
         # Get candidate profile
         profile = get_object_or_404(CandidateProfile, user=request.user)
         
-        # Get job description
         job_id = request.data.get('job_id')
         jd_text = request.data.get('jd_text')
-        
-        if job_id:
-            job = get_object_or_404(JobDescription, id=job_id)
-            jd_data = {
-                'id': job.id,
-                'title': job.title,
-                'company': job.company,
-                'description': job.description,
-                'required_competencies': job.competencies.get('required_competencies', []),
-                'optional_competencies': job.competencies.get('optional_competencies', []),
-            }
-        elif jd_text:
-            # Parse JD text using LLM
-            jd_data = llm_service.parse_job_description(jd_text)
-            jd_data['id'] = 'temp'
-        else:
-            return Response({
-                'error': 'Either job_id or jd_text is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            job, jd_data, source = _resolve_job_context(job_id, jd_text)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         
         # Build knowledge graph
         kg = KnowledgeGraph()
@@ -163,6 +190,17 @@ class GenerateResumeView(APIView):
             profile.id
         )
         logger.info(f"Attempt {attempt_number}: PDF generated successfully")
+
+        label_metadata = _build_label_metadata(profile, jd_data)
+        generated_record = self._persist_generated_resume(
+            profile=profile,
+            job=job,
+            jd_data=jd_data,
+            source=source,
+            resume_data=resume_data,
+            selected_content=selected_content,
+            label_metadata=label_metadata
+        )
         
         # Create or update application if job_id provided
         if job_id:
@@ -185,7 +223,10 @@ class GenerateResumeView(APIView):
                 'pdf_path': resume_data['pdf_path'],
                 'application_id': application.id,
                 'match_explanation': match_explanation,
-                'attempt': attempt_number
+                'attempt': attempt_number,
+                'display_label': generated_record.display_label,
+                'version': generated_record.version,
+                'source': generated_record.source,
             }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
         else:
             # Just return resume without creating application
@@ -194,8 +235,37 @@ class GenerateResumeView(APIView):
                 'message': 'Resume generated successfully',
                 'resume_id': resume_data['resume_id'],
                 'pdf_path': resume_data['pdf_path'],
-                'attempt': attempt_number
+                'attempt': attempt_number,
+                'display_label': generated_record.display_label,
+                'version': generated_record.version,
+                'source': generated_record.source,
             }, status=status.HTTP_200_OK)
+
+    def _persist_generated_resume(self, profile, job, jd_data, source, resume_data, selected_content, label_metadata):
+        with transaction.atomic():
+            qs = GeneratedResume.objects.select_for_update().filter(
+                candidate=profile,
+                base_slug=label_metadata['base_slug']
+            )
+            current_max = qs.aggregate(max_version=Max('version'))['max_version'] or 0
+            version = current_max + 1
+            display_label = label_metadata['base_label'] if version == 1 else f"{label_metadata['base_label']} - {version}"
+            generated_resume = GeneratedResume.objects.create(
+                candidate=profile,
+                job=job,
+                resume_id=resume_data['resume_id'],
+                base_label=label_metadata['base_label'],
+                base_slug=label_metadata['base_slug'],
+                display_label=display_label,
+                version=version,
+                jd_title=jd_data.get('title', ''),
+                jd_company=jd_data.get('company', ''),
+                pdf_path=resume_data['pdf_path'],
+                source=source,
+                jd_snapshot=jd_data,
+                graph_snapshot=selected_content,
+            )
+        return generated_resume
 
 
 class DownloadResumeView(APIView):
@@ -208,20 +278,23 @@ class DownloadResumeView(APIView):
     def get(self, request, resume_id):
         profile = get_object_or_404(CandidateProfile, user=request.user)
 
-        # Attempt to find an application record first (job-linked generation)
-        application = Application.objects.filter(
-            candidate=profile,
-            resume_id=resume_id
-        ).first()
+        generated_resume = profile.generated_resumes.filter(resume_id=resume_id).first()
 
-        if application:
-            pdf_path = application.generated_pdf_path
+        if generated_resume:
+            pdf_path = generated_resume.pdf_path
         else:
-            # Handle JD-only generations: file stored under candidate folder
-            pdf_path = os.path.join(
-                settings.RESUME_STORAGE_PATH,
-                f"{profile.id}/{resume_id}.pdf"
-            )
+            application = Application.objects.filter(
+                candidate=profile,
+                resume_id=resume_id
+            ).first()
+
+            if application:
+                pdf_path = application.generated_pdf_path
+            else:
+                pdf_path = os.path.join(
+                    settings.RESUME_STORAGE_PATH,
+                    f"{profile.id}/{resume_id}.pdf"
+                )
 
         if not os.path.exists(pdf_path):
             return Response(
@@ -246,18 +319,21 @@ class ResumeHistoryView(APIView):
     def get(self, request):
         try:
             profile = get_object_or_404(CandidateProfile, user=request.user)
-            applications = Application.objects.filter(candidate=profile).select_related('job')
-            
+            history = profile.generated_resumes.select_related('job')
+
             resumes = [
                 {
-                    'resume_id': app.resume_id,
-                    'job_title': app.job.title,
-                    'job_company': app.job.company,
-                    'status': app.status,
-                    'applied_at': app.applied_at,
-                    'pdf_path': app.generated_pdf_path
+                    'resume_id': record.resume_id,
+                    'display_label': record.display_label,
+                    'version': record.version,
+                    'pdf_path': record.pdf_path,
+                    'source': record.source,
+                    'created_at': record.created_at,
+                    'job_id': record.job.id if record.job else None,
+                    'jd_title': record.jd_title,
+                    'jd_company': record.jd_company,
                 }
-                for app in applications
+                for record in history
             ]
             
             return Response({
@@ -268,3 +344,24 @@ class ResumeHistoryView(APIView):
             return Response({
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ResumeLabelPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        profile = get_object_or_404(CandidateProfile, user=request.user)
+        job_id = request.data.get('job_id')
+        jd_text = request.data.get('jd_text')
+
+        try:
+            _, jd_data, _ = _resolve_job_context(job_id, jd_text)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        label_data = _build_label_metadata(profile, jd_data)
+        return Response({
+            'base_label': label_data['base_label'],
+            'display_label': label_data['display_label'],
+            'next_version': label_data['next_version'],
+        }, status=status.HTTP_200_OK)
