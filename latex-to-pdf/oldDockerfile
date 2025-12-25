@@ -1,0 +1,18 @@
+# ---------- Stage 1 : copy TeX Live from old image ----------
+FROM blang/latex:ctanfull as texbase
+
+# ---------- Stage 2 : modern Python API layer ----------
+FROM python:3.11-slim
+
+# Copy TeX binaries from old image
+COPY --from=texbase /usr/local/texlive /usr/local/texlive
+ENV PATH="/usr/local/texlive/2017/bin/x86_64-linux:${PATH}"
+
+# Install FastAPI stack
+RUN pip install fastapi uvicorn python-multipart
+
+WORKDIR /app
+COPY app.py /app
+
+EXPOSE 8006
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8006"]

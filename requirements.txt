@@ -1,0 +1,23 @@
+# Core Django
+Django==5.0
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.0
+
+# Knowledge Graph
+networkx==3.2
+
+# LLM Integration
+google-genai
+
+# HTTP Client (for LaTeX service)
+requests==2.31.0
+
+# Validation & Utilities
+jsonschema==4.20.0
+python-dotenv==1.0.0
+
+# CORS (for React frontend)
+django-cors-headers==4.3.1
+
+# Development
+django-extensions==3.2.3

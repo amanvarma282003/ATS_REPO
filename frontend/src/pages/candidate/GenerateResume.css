@@ -1,0 +1,85 @@
+.generate-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 2.5rem 8vw 4rem;
+}
+
+.generate-container h1 {
+  color: #2c3e50;
+  margin-bottom: 2rem;
+}
+
+.generate-section {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.generate-section h2 {
+  color: #34495e;
+  margin-bottom: 1rem;
+}
+
+.jd-textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  resize: vertical;
+}
+
+.jd-textarea:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.result-section {
+  background: #e8f8f5;
+  padding: 2rem;
+  border-radius: 8px;
+  border-left: 4px solid #27ae60;
+}
+
+.result-section h2 {
+  color: #27ae60;
+  margin-bottom: 1rem;
+}
+
+.result-details {
+  margin-bottom: 1.5rem;
+}
+
+.result-details p {
+  margin: 0.5rem 0;
+  color: #2c3e50;
+}
+
+.match-explanation {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.match-explanation h3 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.match-explanation h4 {
+  color: #34495e;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.match-explanation ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #7f8c8d;
+}

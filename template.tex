@@ -1,0 +1,238 @@
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\usepackage{graphicx}
+\setlength{\multicolsep}{-3.0pt}
+\setlength{\columnsep}{-1pt}
+\input{glyphtounicode}
+
+\RequirePackage{tikz}
+\RequirePackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{svg.path}
+
+
+\definecolor{cvblue}{HTML}{0E5484}
+\definecolor{black}{HTML}{130810}
+\definecolor{darkcolor}{HTML}{0F4539}
+\definecolor{cvgreen}{HTML}{3BD80D}
+\definecolor{taggreen}{HTML}{00E278}
+\definecolor{SlateGrey}{HTML}{2E2E2E}
+\definecolor{LightGrey}{HTML}{666666}
+\colorlet{name}{black}
+\colorlet{tagline}{darkcolor}
+\colorlet{heading}{darkcolor}
+\colorlet{headingrule}{cvblue}
+\colorlet{accent}{darkcolor}
+\colorlet{emphasis}{SlateGrey}
+\colorlet{body}{LightGrey}
+
+
+
+%----------FONT OPTIONS----------
+% sans-serif
+% \usepackage[sfdefault]{FiraSans}
+% \usepackage[sfdefault]{roboto}
+% \usepackage[sfdefault]{noto-sans}
+% \usepackage[default]{sourcesanspro}
+
+% serif
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+
+
+% \pagestyle{fancy}
+% \fancyhf{}  % clear all header and footer fields
+% \fancyfoot{}
+% \renewcommand{\headrulewidth}{0pt}
+% \renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.6in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1.19in}
+\addtolength{\topmargin}{-.7in}
+\addtolength{\textheight}{1.4in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large\bfseries
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\classesList}[4]{
+    \item\small{
+        {#1 #2 #3 #4 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{\large#1} & \textbf{\small #2} \\
+      \textit{\large#3} & \textit{\small #4} \\
+      
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{1.001\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & \textbf{\small #2}\\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+
+\newcommand\sbullet[1][.5]{\mathbin{\vcenter{\hbox{\scalebox{#1}{$\bullet$}}}}}
+
+
+
+% Command for inline heading
+\newcommand{\resumeSubheadingInline}[3]{
+  \item \textbf{#1} -- \textit{#2} \hfill \textit{#3}
+}
+\newcommand{\resumeItemCompact}[1]{
+  \item {\small #1}
+}
+\newcommand{\resumeItemListStartCompact}{\begin{itemize}[leftmargin=0.15in, topsep=0pt, partopsep=0pt, itemsep=1pt]}
+\newcommand{\resumeItemListEndCompact}{\end{itemize}}
+
+
+
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+%----------HEADER----------
+\begin{center}
+    {\Huge \scshape [Your Name]} \\[2pt]
+    [City, State] \\[1pt]
+    \small 
+    \href{tel:[Your Phone]}{\faPhone\ [Your Phone]} ~
+    \href{mailto:[Your Email]}{\faEnvelope\ [Your Email]} ~
+    \href{https://linkedin.com/in/[Your-Profile]}{\faLinkedin\ [Your-Profile]} ~
+    \href{https://github.com/[Your-Username]}{\faGithub\ [Your-Username]}
+\end{center}
+\vspace{-8pt}
+
+%-----------SUMMARY / OBJECTIVE----------
+\section*{Summary}
+\small
+[A brief, 2-3 sentence summary of your professional background, key skills, and career objective. Tailor this to the specific job you are applying for. For example: "Highly motivated Software Engineer with 5+ years of experience in building scalable web applications. Seeking to leverage expertise in Python and cloud computing to contribute to innovative projects."]
+
+%-----------EXPERIENCE----------
+\section{Experience}
+\resumeSubHeadingListStart
+
+\resumeSubheadingInline{[Company Name]}{[Your Job Title]}{[Start Date] – [End Date]}
+\resumeItemListStartCompact
+    \resumeItemCompact{[Describe your key accomplishment or responsibility. Use action verbs and quantify your results whenever possible. For example: "Developed a new feature that increased user engagement by 15%."]}
+    \resumeItemCompact{[Add another bullet point for a different accomplishment or responsibility.]}
+    \resumeItemCompact{[Keep it concise and focused on impact.]}
+\resumeItemListEndCompact
+
+\resumeSubheadingInline{[Previous Company Name]}{[Your Job Title]}{[Start Date] – [End Date]}
+\resumeItemListStartCompact
+    \resumeItemCompact{[Describe your key accomplishment or responsibility.]}
+    \resumeItemCompact{[Describe another key accomplishment or responsibility.]}
+\resumeItemListEndCompact
+
+\resumeSubHeadingListEnd
+
+%-----------TECHNICAL SKILLS----------
+\section*{Technical Skills}
+\small
+\textbf{Core Concepts:} [e.g., Object-Oriented Design, Algorithm Design, Data Structures, Problem Solving] \\
+\textbf{Programming:} [e.g., Python, Java, C++, JavaScript, SQL, HTML/CSS] \\
+\textbf{Frameworks/Libraries:} [e.g., ReactJS, NodeJS, Django, Flask, PyTorch, TensorFlow] \\
+\textbf{Tools/Platforms:} [e.g., Linux, Git, GitHub, Docker, Kubernetes, AWS, Azure]
+
+
+%-----------EDUCATION----------
+\section*{Education}
+\small
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} l r}
+\textbf{[Your Degree, Major]}, [Your University], [CGPA/Percentage] & [Start Year] – [End Year] \\
+\textbf{[Your High School Degree]}, [Your High School Name] & [Start Year] – [End Year] \\
+\end{tabular*}
+
+%-----------PUBLICATIONS----------
+\section*{Publications}
+\small
+% Use this section if you have published papers. If not, you can remove it.
+\textbf{[Title of Your Publication]} \hfill [Date] \\
+[Conference / Journal Name] \\
+[Brief description of your publication, your contribution, and its impact. Add a DOI link if available.] \href{[DOI Link]}{DOI} \\[1ex]
+
+\textbf{[Another Publication Title]} \hfill [Date] \\
+[Conference / Journal Name] \\
+[Brief description.] \href{[DOI Link]}{DOI} \\[1ex]
+
+
+%-----------ACHIEVEMENTS / AWARDS----------
+\section*{Achievements / Awards}
+\small
+\begin{itemize}[leftmargin=0.15in, label={}]
+    \item \textbf{[Award Name], [Awarding Organization]} – [e.g., National Level]
+    \item \textbf{[Hackathon or Competition Win], [Event Name]} – [e.g., First Place]
+    \item \textbf{[Scholarship or Grant Name]} – [Awarding Institution]
+\end{itemize}
+
+%-----------EXTRACURRICULAR / LEADERSHIP----------
+\section*{Extracurricular / Leadership}
+\small
+\begin{itemize}[leftmargin=0.15in, label={}]
+    \item \textbf{[Your Role] – [Organization Name], [City]}: [Briefly describe your responsibilities and achievements. For example: "Organized a workshop for 50+ students on web development, receiving 95\% positive feedback."]}
+    \item \textbf{[Your Role] – [Another Organization], [City]}: [Describe your responsibilities and achievements in this role.]
+    \item \textbf{[Volunteer Work] – [Organization Name], [City]}: [Describe your contributions and the impact of your work.]
+\end{itemize}
+
+\end{document}

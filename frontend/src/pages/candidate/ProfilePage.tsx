@@ -1,0 +1,1659 @@
+import React, { useState, useEffect } from 'react';
+import { candidateService } from '../../services/candidate.service';
+import { CandidateProfile, Education, Experience, Publication, Award, Extracurricular, Patent, CustomLink, Project, Skill, CandidateSkill } from '../../types';
+import './ProfilePage.css';
+
+type TabType = 'personal' | 'summary' | 'education' | 'experience' | 'projects' | 'skills' | 'publications' | 'awards' | 'extracurricular' | 'patents' | 'upload';
+
+const ProfilePage: React.FC = () => {
+  const [profile, setProfile] = useState<CandidateProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('personal');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  // Personal Info State
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('');
+  const [preferredRoles, setPreferredRoles] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [github, setGithub] = useState('');
+
+  // Summary State
+  const [summary, setSummary] = useState('');
+
+  // Education State
+  const [education, setEducation] = useState<Education[]>([]);
+  const [editingEduIndex, setEditingEduIndex] = useState<number | null>(null);
+  const [eduForm, setEduForm] = useState<Education>({
+    degree: '',
+    institution: '',
+    start_year: '',
+    end_year: '',
+    cgpa: ''
+  });
+
+  // Experience State
+  const [experience, setExperience] = useState<Experience[]>([]);
+  const [editingExpIndex, setEditingExpIndex] = useState<number | null>(null);
+  const [expForm, setExpForm] = useState<Experience>({
+    company: '',
+    role: '',
+    start_date: '',
+    end_date: '',
+    responsibilities: []
+  });
+  const [currentResponsibility, setCurrentResponsibility] = useState('');
+
+  // Publications State
+  const [publications, setPublications] = useState<Publication[]>([]);
+  const [editingPubIndex, setEditingPubIndex] = useState<number | null>(null);
+  const [pubForm, setPubForm] = useState<Publication>({
+    title: '',
+    venue: '',
+    date: '',
+    doi: '',
+    description: ''
+  });
+
+  // Awards State
+  const [awards, setAwards] = useState<Award[]>([]);
+  const [editingAwardIndex, setEditingAwardIndex] = useState<number | null>(null);
+  const [awardForm, setAwardForm] = useState<Award>({
+    title: '',
+    organization: '',
+    level: '',
+    date: ''
+  });
+
+  // Extracurricular State
+  const [extracurricular, setExtracurricular] = useState<Extracurricular[]>([]);
+  const [editingExtraIndex, setEditingExtraIndex] = useState<number | null>(null);
+  const [extraForm, setExtraForm] = useState<Extracurricular>({
+    role: '',
+    organization: '',
+    location: '',
+    description: ''
+  });
+
+  // Patents State
+  const [patents, setPatents] = useState<Patent[]>([]);
+  const [editingPatentIndex, setEditingPatentIndex] = useState<number | null>(null);
+  const [patentForm, setPatentForm] = useState<Patent>({
+    title: '',
+    patent_number: '',
+    filing_date: '',
+    grant_date: '',
+    description: '',
+    inventors: ''
+  });
+
+  // Custom Links State
+  const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
+  const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null);
+  const [linkForm, setLinkForm] = useState<CustomLink>({
+    label: '',
+    url: '',
+    description: ''
+  });
+
+  // Projects State
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectForm, setProjectForm] = useState({ title: '', description: '', outcomes: [''] });
+
+  // Skills State
+  const [allSkills, setAllSkills] = useState<Skill[]>([]);
+  const [mySkills, setMySkills] = useState<CandidateSkill[]>([]);
+  const [skillForm, setSkillForm] = useState({
+    skill: 0,
+    proficiency_level: 'INTERMEDIATE' as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT',
+    years_of_experience: 0
+  });
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillCategory, setNewSkillCategory] = useState<'TECHNICAL' | 'SOFT' | 'DOMAIN'>('TECHNICAL');
+
+  // Resume Upload State
+  const [resumeText, setResumeText] = useState('');
+
+  useEffect(() => {
+    loadProfile();
+    loadProjects();
+    loadSkills();
+    loadMySkills();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const data = await candidateService.getProfile();
+      setProfile(data);
+      setFullName(data.full_name || '');
+      setPhone(data.phone || '');
+      setLocation(data.location || '');
+      setPreferredRoles(data.preferred_roles?.join(', ') || '');
+      setLinkedin(data.linkedin || '');
+      setGithub(data.github || '');
+      setSummary(data.summary || '');
+      setEducation(data.education || []);
+      setExperience(data.experience || []);
+      setPublications(data.publications || []);
+      setAwards(data.awards || []);
+      setExtracurricular(data.extracurricular || []);
+      setPatents(data.patents || []);
+      setCustomLinks(data.custom_links || []);
+    } catch (err: any) {
+      setError('Failed to load profile');
+    }
+  };
+
+  const loadProjects = async () => {
+    try {
+      const data = await candidateService.getProjects();
+      setProjects(data);
+    } catch (err) {
+      console.error('Failed to load projects');
+    }
+  };
+
+  const loadSkills = async () => {
+    try {
+      const data = await candidateService.getSkills();
+      setAllSkills(data);
+    } catch (err) {
+      console.error('Failed to load skills');
+    }
+  };
+
+  const loadMySkills = async () => {
+    try {
+      const data = await candidateService.getMySkills();
+      setMySkills(data);
+    } catch (err) {
+      console.error('Failed to load my skills');
+    }
+  };
+
+  const showMessage = (msg: string, isError = false) => {
+    if (isError) {
+      setError(msg);
+      setMessage('');
+    } else {
+      setMessage(msg);
+      setError('');
+    }
+    setTimeout(() => {
+      setError('');
+      setMessage('');
+    }, 3000);
+  };
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const rolesArray = preferredRoles
+        .split(',')
+        .map(r => r.trim())
+        .filter(r => r.length > 0);
+
+      const updated = await candidateService.updateProfile({
+        full_name: fullName,
+        phone: phone,
+        location: location,
+        preferred_roles: rolesArray,
+        linkedin: linkedin,
+        github: github,
+        summary: summary,
+        education: education,
+        experience: experience,
+        publications: publications,
+        awards: awards,
+        extracurricular: extracurricular,
+        patents: patents,
+        custom_links: customLinks
+      });
+
+      setProfile(updated);
+      showMessage('Profile updated successfully!');
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to update profile', true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Education Handlers
+  const handleAddEducation = () => {
+    if (!eduForm.degree || !eduForm.institution) {
+      showMessage('Degree and Institution are required', true);
+      return;
+    }
+    if (editingEduIndex !== null) {
+      const updated = [...education];
+      updated[editingEduIndex] = eduForm;
+      setEducation(updated);
+      setEditingEduIndex(null);
+    } else {
+      setEducation([...education, eduForm]);
+    }
+    setEduForm({ degree: '', institution: '', start_year: '', end_year: '', cgpa: '' });
+  };
+
+  const handleEditEducation = (index: number) => {
+    setEduForm(education[index]);
+    setEditingEduIndex(index);
+  };
+
+  const handleDeleteEducation = (index: number) => {
+    setEducation(education.filter((_, i) => i !== index));
+  };
+
+  // Experience Handlers
+  const handleAddResponsibility = () => {
+    if (currentResponsibility.trim()) {
+      setExpForm({
+        ...expForm,
+        responsibilities: [...expForm.responsibilities, currentResponsibility.trim()]
+      });
+      setCurrentResponsibility('');
+    }
+  };
+
+  const handleRemoveResponsibility = (index: number) => {
+    setExpForm({
+      ...expForm,
+      responsibilities: expForm.responsibilities.filter((_, i) => i !== index)
+    });
+  };
+
+  const handleAddExperience = () => {
+    if (!expForm.company || !expForm.role) {
+      showMessage('Company and Role are required', true);
+      return;
+    }
+    if (editingExpIndex !== null) {
+      const updated = [...experience];
+      updated[editingExpIndex] = expForm;
+      setExperience(updated);
+      setEditingExpIndex(null);
+    } else {
+      setExperience([...experience, expForm]);
+    }
+    setExpForm({ company: '', role: '', start_date: '', end_date: '', responsibilities: [] });
+  };
+
+  const handleEditExperience = (index: number) => {
+    setExpForm(experience[index]);
+    setEditingExpIndex(index);
+  };
+
+  const handleDeleteExperience = (index: number) => {
+    setExperience(experience.filter((_, i) => i !== index));
+  };
+
+  // Publication Handlers
+  const handleAddPublication = () => {
+    if (!pubForm.title || !pubForm.venue) {
+      showMessage('Title and Venue are required', true);
+      return;
+    }
+    if (editingPubIndex !== null) {
+      const updated = [...publications];
+      updated[editingPubIndex] = pubForm;
+      setPublications(updated);
+      setEditingPubIndex(null);
+    } else {
+      setPublications([...publications, pubForm]);
+    }
+    setPubForm({ title: '', venue: '', date: '', doi: '', description: '' });
+  };
+
+  const handleEditPublication = (index: number) => {
+    setPubForm(publications[index]);
+    setEditingPubIndex(index);
+  };
+
+  const handleDeletePublication = (index: number) => {
+    setPublications(publications.filter((_, i) => i !== index));
+  };
+
+  // Award Handlers
+  const handleAddAward = () => {
+    if (!awardForm.title || !awardForm.organization) {
+      showMessage('Title and Organization are required', true);
+      return;
+    }
+    if (editingAwardIndex !== null) {
+      const updated = [...awards];
+      updated[editingAwardIndex] = awardForm;
+      setAwards(updated);
+      setEditingAwardIndex(null);
+    } else {
+      setAwards([...awards, awardForm]);
+    }
+    setAwardForm({ title: '', organization: '', level: '', date: '' });
+  };
+
+  const handleEditAward = (index: number) => {
+    setAwardForm(awards[index]);
+    setEditingAwardIndex(index);
+  };
+
+  const handleDeleteAward = (index: number) => {
+    setAwards(awards.filter((_, i) => i !== index));
+  };
+
+  // Extracurricular Handlers
+  const handleAddExtracurricular = () => {
+    if (!extraForm.role || !extraForm.organization) {
+      showMessage('Role and Organization are required', true);
+      return;
+    }
+    if (editingExtraIndex !== null) {
+      const updated = [...extracurricular];
+      updated[editingExtraIndex] = extraForm;
+      setExtracurricular(updated);
+      setEditingExtraIndex(null);
+    } else {
+      setExtracurricular([...extracurricular, extraForm]);
+    }
+    setExtraForm({ role: '', organization: '', location: '', description: '' });
+  };
+
+  const handleEditExtracurricular = (index: number) => {
+    setExtraForm(extracurricular[index]);
+    setEditingExtraIndex(index);
+  };
+
+  const handleDeleteExtracurricular = (index: number) => {
+    setExtracurricular(extracurricular.filter((_, i) => i !== index));
+  };
+
+  // Patent Handlers
+  const handleAddPatent = () => {
+    if (!patentForm.title) {
+      showMessage('Patent Title is required', true);
+      return;
+    }
+    if (editingPatentIndex !== null) {
+      const updated = [...patents];
+      updated[editingPatentIndex] = patentForm;
+      setPatents(updated);
+      setEditingPatentIndex(null);
+    } else {
+      setPatents([...patents, patentForm]);
+    }
+    setPatentForm({ title: '', patent_number: '', filing_date: '', grant_date: '', description: '', inventors: '' });
+  };
+
+  const handleEditPatent = (index: number) => {
+    setPatentForm(patents[index]);
+    setEditingPatentIndex(index);
+  };
+
+  const handleDeletePatent = (index: number) => {
+    setPatents(patents.filter((_, i) => i !== index));
+  };
+
+  // Custom Link Handlers
+  const handleAddLink = () => {
+    if (!linkForm.label || !linkForm.url) {
+      showMessage('Label and URL are required', true);
+      return;
+    }
+    if (editingLinkIndex !== null) {
+      const updated = [...customLinks];
+      updated[editingLinkIndex] = linkForm;
+      setCustomLinks(updated);
+      setEditingLinkIndex(null);
+    } else {
+      setCustomLinks([...customLinks, linkForm]);
+    }
+    setLinkForm({ label: '', url: '', description: '' });
+  };
+
+  const handleEditLink = (index: number) => {
+    setLinkForm(customLinks[index]);
+    setEditingLinkIndex(index);
+  };
+
+  const handleDeleteLink = (index: number) => {
+    setCustomLinks(customLinks.filter((_, i) => i !== index));
+  };
+
+  // Resume Upload Handler
+  const handleResumeUpload = async () => {
+    if (!resumeText.trim()) {
+      showMessage('Please paste your resume text', true);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('');
+
+    try {
+      await candidateService.uploadResume(resumeText);
+      showMessage('Resume uploaded! Auto-extracted information.');
+      setResumeText('');
+      await loadProfile();
+    } catch (err: any) {
+      showMessage(err.response?.data?.error || 'Failed to upload resume', true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!profile && !error) {
+    return <div className="profile-container">Loading...</div>;
+  }
+
+  return (
+    <div className="profile-container">
+      <div className="profile-header-section">
+        <h1>My Profile</h1>
+        <button
+          onClick={handleSaveProfile}
+          disabled={loading}
+          className="btn-primary save-all-btn"
+        >
+          {loading ? 'Saving...' : 'Save All Changes'}
+        </button>
+      </div>
+
+      {message && <div className="success-message">{message}</div>}
+      {error && <div className="error-message">{error}</div>}
+
+      <div className="tabs-container">
+        <div className="tabs">
+          <button
+            className={`tab ${activeTab === 'personal' ? 'active' : ''}`}
+            onClick={() => setActiveTab('personal')}
+          >
+            Personal Info
+          </button>
+          <button
+            className={`tab ${activeTab === 'summary' ? 'active' : ''}`}
+            onClick={() => setActiveTab('summary')}
+          >
+            Summary
+          </button>
+          <button
+            className={`tab ${activeTab === 'education' ? 'active' : ''}`}
+            onClick={() => setActiveTab('education')}
+          >
+            Education
+          </button>
+          <button
+            className={`tab ${activeTab === 'experience' ? 'active' : ''}`}
+            onClick={() => setActiveTab('experience')}
+          >
+            Experience
+          </button>
+          <button
+            className={`tab ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveTab('projects')}
+          >
+            Projects
+          </button>
+          <button
+            className={`tab ${activeTab === 'skills' ? 'active' : ''}`}
+            onClick={() => setActiveTab('skills')}
+          >
+            Skills
+          </button>
+          <button
+            className={`tab ${activeTab === 'publications' ? 'active' : ''}`}
+            onClick={() => setActiveTab('publications')}
+          >
+            Publications
+          </button>
+          <button
+            className={`tab ${activeTab === 'awards' ? 'active' : ''}`}
+            onClick={() => setActiveTab('awards')}
+          >
+            Awards
+          </button>
+          <button
+            className={`tab ${activeTab === 'extracurricular' ? 'active' : ''}`}
+            onClick={() => setActiveTab('extracurricular')}
+          >
+            Extracurricular
+          </button>
+          <button
+            className={`tab ${activeTab === 'patents' ? 'active' : ''}`}
+            onClick={() => setActiveTab('patents')}
+          >
+            Patents
+          </button>
+          <button
+            className={`tab ${activeTab === 'upload' ? 'active' : ''}`}
+            onClick={() => setActiveTab('upload')}
+          >
+            Quick Upload
+          </button>
+        </div>
+
+        <div className="tab-content">
+          {/* Personal Info Tab */}
+          {activeTab === 'personal' && (
+            <div className="section">
+              <h2>Personal Information</h2>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Full Name *</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input type="text" value={profile?.email} disabled />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+1234567890"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Location</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="City, Country"
+                  />
+                </div>
+                <div className="form-group full-width">
+                  <label>Preferred Roles (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={preferredRoles}
+                    onChange={(e) => setPreferredRoles(e.target.value)}
+                    placeholder="Software Engineer, Data Scientist"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>LinkedIn Profile</label>
+                  <input
+                    type="url"
+                    value={linkedin}
+                    onChange={(e) => setLinkedin(e.target.value)}
+                    placeholder="https://linkedin.com/in/yourprofile"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>GitHub Profile</label>
+                  <input
+                    type="url"
+                    value={github}
+                    onChange={(e) => setGithub(e.target.value)}
+                    placeholder="https://github.com/yourusername"
+                  />
+                </div>
+              </div>
+
+              <div className="subsection">
+                <h3>Custom Links</h3>
+                <p className="help-text-small">
+                  Add links to your personal website, portfolio, blog, or any other relevant online presence.
+                </p>
+                
+                <div className="entries-list-compact">
+                  {customLinks.map((link, index) => (
+                    <div key={index} className="entry-card-compact">
+                      <div className="entry-header">
+                        <div>
+                          <h4>{link.label}</h4>
+                          <p className="entry-subtitle">
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="link-url">
+                              {link.url}
+                            </a>
+                          </p>
+                          {link.description && <p className="entry-description-small">{link.description}</p>}
+                        </div>
+                        <div className="entry-actions">
+                          <button
+                            onClick={() => handleEditLink(index)}
+                            className="btn-icon-small"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteLink(index)}
+                            className="btn-icon-small btn-danger"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="entry-form-compact">
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Label/Title *</label>
+                      <input
+                        type="text"
+                        value={linkForm.label}
+                        onChange={(e) => setLinkForm({ ...linkForm, label: e.target.value })}
+                        placeholder="Personal Website, Portfolio, Blog, etc."
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>URL *</label>
+                      <input
+                        type="url"
+                        value={linkForm.url}
+                        onChange={(e) => setLinkForm({ ...linkForm, url: e.target.value })}
+                        placeholder="https://example.com"
+                      />
+                    </div>
+                    <div className="form-group full-width">
+                      <label>Description (Optional)</label>
+                      <input
+                        type="text"
+                        value={linkForm.description || ''}
+                        onChange={(e) => setLinkForm({ ...linkForm, description: e.target.value })}
+                        placeholder="Brief description of what this link contains"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-actions">
+                    <button onClick={handleAddLink} className="btn-primary">
+                      {editingLinkIndex !== null ? 'Update' : 'Add'} Link
+                    </button>
+                    {editingLinkIndex !== null && (
+                      <button
+                        onClick={() => {
+                          setEditingLinkIndex(null);
+                          setLinkForm({ label: '', url: '', description: '' });
+                        }}
+                        className="btn-secondary"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Summary Tab */}
+          {activeTab === 'summary' && (
+            <div className="section">
+              <h2>Professional Summary</h2>
+              <p className="help-text">
+                Write a brief 2-3 sentence summary of your professional background and career objective.
+              </p>
+              <textarea
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                placeholder="Example: Highly motivated Software Engineer with 5+ years of experience in building scalable web applications. Seeking to leverage expertise in Python and cloud computing to contribute to innovative projects."
+                rows={6}
+                className="full-width-textarea"
+              />
+            </div>
+          )}
+
+          {/* Education Tab */}
+          {activeTab === 'education' && (
+            <div className="section">
+              <h2>Education</h2>
+              
+              <div className="entries-list">
+                {education.map((edu, index) => (
+                  <div key={index} className="entry-card">
+                    <div className="entry-header">
+                      <div>
+                        <h3>{edu.degree}</h3>
+                        <p className="entry-subtitle">{edu.institution}</p>
+                        <p className="entry-meta">
+                          {edu.start_year} - {edu.end_year}
+                          {edu.cgpa && ` | CGPA: ${edu.cgpa}`}
+                        </p>
+                      </div>
+                      <div className="entry-actions">
+                        <button
+                          onClick={() => handleEditEducation(index)}
+                          className="btn-icon"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEducation(index)}
+                          className="btn-icon btn-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="entry-form">
+                <h3>{editingEduIndex !== null ? 'Edit Education' : 'Add Education'}</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Degree *</label>
+                    <input
+                      type="text"
+                      value={eduForm.degree}
+                      onChange={(e) => setEduForm({ ...eduForm, degree: e.target.value })}
+                      placeholder="B.Tech in Computer Science"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Institution *</label>
+                    <input
+                      type="text"
+                      value={eduForm.institution}
+                      onChange={(e) => setEduForm({ ...eduForm, institution: e.target.value })}
+                      placeholder="XYZ University"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Start Year</label>
+                    <input
+                      type="text"
+                      value={eduForm.start_year}
+                      onChange={(e) => setEduForm({ ...eduForm, start_year: e.target.value })}
+                      placeholder="2018"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>End Year</label>
+                    <input
+                      type="text"
+                      value={eduForm.end_year}
+                      onChange={(e) => setEduForm({ ...eduForm, end_year: e.target.value })}
+                      placeholder="2022"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>CGPA/Percentage</label>
+                    <input
+                      type="text"
+                      value={eduForm.cgpa || ''}
+                      onChange={(e) => setEduForm({ ...eduForm, cgpa: e.target.value })}
+                      placeholder="8.5/10.0"
+                    />
+                  </div>
+                </div>
+                <button onClick={handleAddEducation} className="btn-primary">
+                  {editingEduIndex !== null ? 'Update' : 'Add'} Education
+                </button>
+                {editingEduIndex !== null && (
+                  <button
+                    onClick={() => {
+                      setEditingEduIndex(null);
+                      setEduForm({ degree: '', institution: '', start_year: '', end_year: '', cgpa: '' });
+                    }}
+                    className="btn-secondary"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Experience Tab */}
+          {activeTab === 'experience' && (
+            <div className="section">
+              <h2>Work Experience</h2>
+              
+              <div className="entries-list">
+                {experience.map((exp, index) => (
+                  <div key={index} className="entry-card">
+                    <div className="entry-header">
+                      <div>
+                        <h3>{exp.role}</h3>
+                        <p className="entry-subtitle">{exp.company}</p>
+                        <p className="entry-meta">
+                          {exp.start_date} - {exp.end_date}
+                        </p>
+                        {exp.responsibilities.length > 0 && (
+                          <ul className="responsibilities-list">
+                            {exp.responsibilities.map((resp, i) => (
+                              <li key={i}>{resp}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div className="entry-actions">
+                        <button
+                          onClick={() => handleEditExperience(index)}
+                          className="btn-icon"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteExperience(index)}
+                          className="btn-icon btn-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="entry-form">
+                <h3>{editingExpIndex !== null ? 'Edit Experience' : 'Add Experience'}</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Role/Title *</label>
+                    <input
+                      type="text"
+                      value={expForm.role}
+                      onChange={(e) => setExpForm({ ...expForm, role: e.target.value })}
+                      placeholder="Software Engineer"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Company *</label>
+                    <input
+                      type="text"
+                      value={expForm.company}
+                      onChange={(e) => setExpForm({ ...expForm, company: e.target.value })}
+                      placeholder="ABC Tech"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Start Date</label>
+                    <input
+                      type="text"
+                      value={expForm.start_date}
+                      onChange={(e) => setExpForm({ ...expForm, start_date: e.target.value })}
+                      placeholder="Jan 2020"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>End Date</label>
+                    <input
+                      type="text"
+                      value={expForm.end_date}
+                      onChange={(e) => setExpForm({ ...expForm, end_date: e.target.value })}
+                      placeholder="Dec 2022 or Present"
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-group full-width">
+                  <label>Key Responsibilities</label>
+                  <div className="responsibilities-input">
+                    <input
+                      type="text"
+                      value={currentResponsibility}
+                      onChange={(e) => setCurrentResponsibility(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddResponsibility())}
+                      placeholder="Type a responsibility and press Enter or click Add"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddResponsibility}
+                      className="btn-secondary"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {expForm.responsibilities.length > 0 && (
+                    <ul className="tags-list">
+                      {expForm.responsibilities.map((resp, i) => (
+                        <li key={i} className="tag">
+                          {resp}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveResponsibility(i)}
+                            className="tag-remove"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <button onClick={handleAddExperience} className="btn-primary">
+                  {editingExpIndex !== null ? 'Update' : 'Add'} Experience
+                </button>
+                {editingExpIndex !== null && (
+                  <button
+                    onClick={() => {
+                      setEditingExpIndex(null);
+                      setExpForm({ company: '', role: '', start_date: '', end_date: '', responsibilities: [] });
+                    }}
+                    className="btn-secondary"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Projects Tab */}
+          {activeTab === 'projects' && (
+            <div className="section">
+              <h2>Projects</h2>
+              
+              <div className="entries-list">
+                {projects.map((project) => (
+                  <div key={project.id} className="entry-card">
+                    <div className="entry-header">
+                      <div>
+                        <h3>{project.title}</h3>
+                        <p className="entry-description">{project.description}</p>
+                        {project.outcomes.length > 0 && (
+                          <div>
+                            <strong>Outcomes:</strong>
+                            <ul className="responsibilities-list">
+                              {project.outcomes.map((outcome, i) => (
+                                <li key={i}>{outcome}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      <div className="entry-actions">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await candidateService.deleteProject(project.id);
+                              showMessage('Project deleted successfully!');
+                              loadProjects();
+                            } catch (err) {
+                              showMessage('Failed to delete project', true);
+                            }
+                          }}
+                          className="btn-icon btn-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="entry-form">
+                <h3>Add New Project</h3>
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>Project Title *</label>
+                    <input
+                      type="text"
+                      value={projectForm.title}
+                      onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
+                      placeholder="E-commerce Platform"
+                    />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Description *</label>
+                    <textarea
+                      value={projectForm.description}
+                      onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                      placeholder="Describe your project..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Outcomes (one per line)</label>
+                    <textarea
+                      value={projectForm.outcomes.join('\n')}
+                      onChange={(e) => setProjectForm({ ...projectForm, outcomes: e.target.value.split('\n').filter(o => o.trim()) })}
+                      placeholder="Increased performance by 40%&#10;Reduced costs by $10k/month"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!projectForm.title || !projectForm.description) {
+                      showMessage('Title and description are required', true);
+                      return;
+                    }
+                    setLoading(true);
+                    try {
+                      await candidateService.createProject({
+                        title: projectForm.title,
+                        description: projectForm.description,
+                        outcomes: projectForm.outcomes
+                      });
+                      showMessage('Project added successfully!');
+                      setProjectForm({ title: '', description: '', outcomes: [''] });
+                      loadProjects();
+                    } catch (err) {
+                      showMessage('Failed to add project', true);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="btn-primary"
+                  disabled={loading}
+                >
+                  Add Project
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Skills Tab */}
+          {activeTab === 'skills' && (
+            <div className="section">
+              <h2>My Skills</h2>
+              
+              <div className="entries-list">
+                {mySkills.map((skill) => {
+                  const skillInfo = allSkills.find(s => s.id === skill.skill);
+                  return (
+                    <div key={skill.id} className="entry-card">
+                      <div className="entry-header">
+                        <div>
+                          <h3>{skillInfo?.name || skill.skill_name || `Skill #${skill.skill}`}</h3>
+                          <p className="entry-subtitle">
+                            {skillInfo?.category} • {skill.proficiency_level} • {skill.years_of_experience} years
+                          </p>
+                        </div>
+                        <div className="entry-actions">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await candidateService.deleteMySkill(skill.id);
+                                showMessage('Skill removed successfully!');
+                                loadMySkills();
+                              } catch (err) {
+                                showMessage('Failed to remove skill', true);
+                              }
+                            }}
+                            className="btn-icon btn-danger"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="entry-form">
+                <h3>Add Skill to Profile</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Select Skill *</label>
+                    <select
+                      value={skillForm.skill}
+                      onChange={(e) => setSkillForm({ ...skillForm, skill: Number(e.target.value) })}
+                    >
+                      <option value={0}>-- Select a skill --</option>
+                      {allSkills.map(skill => (
+                        <option key={skill.id} value={skill.id}>
+                          {skill.name} ({skill.category})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Proficiency Level *</label>
+                    <select
+                      value={skillForm.proficiency_level}
+                      onChange={(e) => setSkillForm({ ...skillForm, proficiency_level: e.target.value as any })}
+                    >
+                      <option value="BEGINNER">Beginner</option>
+                      <option value="INTERMEDIATE">Intermediate</option>
+                      <option value="ADVANCED">Advanced</option>
+                      <option value="EXPERT">Expert</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Years of Experience *</label>
+                    <input
+                      type="number"
+                      value={skillForm.years_of_experience}
+                      onChange={(e) => setSkillForm({ ...skillForm, years_of_experience: Number(e.target.value) })}
+                      min={0}
+                      step={0.5}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!skillForm.skill) {
+                      showMessage('Please select a skill', true);
+                      return;
+                    }
+                    setLoading(true);
+                    try {
+                      await candidateService.addMySkill({
+                        skill: skillForm.skill,
+                        proficiency_level: skillForm.proficiency_level,
+                        years_of_experience: skillForm.years_of_experience
+                      });
+                      showMessage('Skill added successfully!');
+                      setSkillForm({ skill: 0, proficiency_level: 'INTERMEDIATE', years_of_experience: 0 });
+                      loadMySkills();
+                    } catch (err) {
+                      showMessage('Failed to add skill', true);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="btn-primary"
+                  disabled={loading}
+                >
+                  Add Skill
+                </button>
+
+                <div style={{ marginTop: '30px', paddingTop: '30px', borderTop: '1px solid #eee' }}>
+                  <h3>Create New Skill</h3>
+                  <p className="help-text-small">Don't see your skill in the list? Create it here first, then add it to your profile above.</p>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Skill Name *</label>
+                      <input
+                        type="text"
+                        value={newSkillName}
+                        onChange={(e) => setNewSkillName(e.target.value)}
+                        placeholder="React, Python, Communication..."
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Category *</label>
+                      <select
+                        value={newSkillCategory}
+                        onChange={(e) => setNewSkillCategory(e.target.value as any)}
+                      >
+                        <option value="TECHNICAL">Technical</option>
+                        <option value="SOFT">Soft Skill</option>
+                        <option value="DOMAIN">Domain Knowledge</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!newSkillName.trim()) {
+                        showMessage('Skill name is required', true);
+                        return;
+                      }
+                      setLoading(true);
+                      try {
+                        await candidateService.createSkill({
+                          name: newSkillName.trim(),
+                          category: newSkillCategory
+                        });
+                        showMessage('Skill created successfully!');
+                        setNewSkillName('');
+                        loadSkills();
+                      } catch (err) {
+                        showMessage('Failed to create skill', true);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="btn-secondary"
+                    disabled={loading}
+                  >
+                    Create Skill
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Publications Tab */}
+          {activeTab === 'publications' && (
+            <div className="section">
+              <h2>Publications</h2>
+              
+              <div className="entries-list">
+                {publications.map((pub, index) => (
+                  <div key={index} className="entry-card">
+                    <div className="entry-header">
+                      <div>
+                        <h3>{pub.title}</h3>
+                        <p className="entry-subtitle">{pub.venue}</p>
+                        <p className="entry-meta">{pub.date}</p>
+                        {pub.doi && <p className="entry-meta">DOI: {pub.doi}</p>}
+                        {pub.description && <p className="entry-description">{pub.description}</p>}
+                      </div>
+                      <div className="entry-actions">
+                        <button
+                          onClick={() => handleEditPublication(index)}
+                          className="btn-icon"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeletePublication(index)}
+                          className="btn-icon btn-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="entry-form">
+                <h3>{editingPubIndex !== null ? 'Edit Publication' : 'Add Publication'}</h3>
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>Title *</label>
+                    <input
+                      type="text"
+                      value={pubForm.title}
+                      onChange={(e) => setPubForm({ ...pubForm, title: e.target.value })}
+                      placeholder="Title of Your Publication"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Conference/Journal *</label>
+                    <input
+                      type="text"
+                      value={pubForm.venue}
+                      onChange={(e) => setPubForm({ ...pubForm, venue: e.target.value })}
+                      placeholder="Conference or Journal Name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Date</label>
+                    <input
+                      type="text"
+                      value={pubForm.date}
+                      onChange={(e) => setPubForm({ ...pubForm, date: e.target.value })}
+                      placeholder="2023"
+                    />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>DOI</label>
+                    <input
+                      type="text"
+                      value={pubForm.doi || ''}
+                      onChange={(e) => setPubForm({ ...pubForm, doi: e.target.value })}
+                      placeholder="10.xxxx/xxxxxx"
+                    />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Description</label>
+                    <textarea
+                      value={pubForm.description || ''}
+                      onChange={(e) => setPubForm({ ...pubForm, description: e.target.value })}
+                      placeholder="Brief description of your contribution and impact"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <button onClick={handleAddPublication} className="btn-primary">
+                  {editingPubIndex !== null ? 'Update' : 'Add'} Publication
+                </button>
+                {editingPubIndex !== null && (
+                  <button
+                    onClick={() => {
+                      setEditingPubIndex(null);
+                      setPubForm({ title: '', venue: '', date: '', doi: '', description: '' });
+                    }}
+                    className="btn-secondary"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Awards Tab */}
+          {activeTab === 'awards' && (
+            <div className="section">
+              <h2>Awards & Achievements</h2>
+              
+              <div className="entries-list">
+                {awards.map((award, index) => (
+                  <div key={index} className="entry-card">
+                    <div className="entry-header">
+                      <div>
+                        <h3>{award.title}</h3>
+                        <p className="entry-subtitle">{award.organization}</p>
+                        <p className="entry-meta">
+                          {award.level && `${award.level} | `}
+                          {award.date}
+                        </p>
+                      </div>
+                      <div className="entry-actions">
+                        <button
+                          onClick={() => handleEditAward(index)}
+                          className="btn-icon"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAward(index)}
+                          className="btn-icon btn-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="entry-form">
+                <h3>{editingAwardIndex !== null ? 'Edit Award' : 'Add Award'}</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Award Title *</label>
+                    <input
+                      type="text"
+                      value={awardForm.title}
+                      onChange={(e) => setAwardForm({ ...awardForm, title: e.target.value })}
+                      placeholder="Best Paper Award"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Awarding Organization *</label>
+                    <input
+                      type="text"
+                      value={awardForm.organization}
+                      onChange={(e) => setAwardForm({ ...awardForm, organization: e.target.value })}
+                      placeholder="IEEE Conference"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Level</label>
+                    <input
+                      type="text"
+                      value={awardForm.level || ''}
+                      onChange={(e) => setAwardForm({ ...awardForm, level: e.target.value })}
+                      placeholder="National Level, First Place, etc."
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Date</label>
+                    <input
+                      type="text"
+                      value={awardForm.date || ''}
+                      onChange={(e) => setAwardForm({ ...awardForm, date: e.target.value })}
+                      placeholder="2023"
+                    />
+                  </div>
+                </div>
+                <button onClick={handleAddAward} className="btn-primary">
+                  {editingAwardIndex !== null ? 'Update' : 'Add'} Award
+                </button>
+                {editingAwardIndex !== null && (
+                  <button
+                    onClick={() => {
+                      setEditingAwardIndex(null);
+                      setAwardForm({ title: '', organization: '', level: '', date: '' });
+                    }}
+                    className="btn-secondary"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Extracurricular Tab */}
+          {activeTab === 'extracurricular' && (
+            <div className="section">
+              <h2>Extracurricular & Leadership</h2>
+              
+              <div className="entries-list">
+                {extracurricular.map((extra, index) => (
+                  <div key={index} className="entry-card">
+                    <div className="entry-header">
+                      <div>
+                        <h3>{extra.role}</h3>
+                        <p className="entry-subtitle">{extra.organization}</p>
+                        {extra.location && <p className="entry-meta">{extra.location}</p>}
+                        <p className="entry-description">{extra.description}</p>
+                      </div>
+                      <div className="entry-actions">
+                        <button
+                          onClick={() => handleEditExtracurricular(index)}
+                          className="btn-icon"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteExtracurricular(index)}
+                          className="btn-icon btn-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="entry-form">
+                <h3>{editingExtraIndex !== null ? 'Edit Activity' : 'Add Activity'}</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Your Role *</label>
+                    <input
+                      type="text"
+                      value={extraForm.role}
+                      onChange={(e) => setExtraForm({ ...extraForm, role: e.target.value })}
+                      placeholder="Volunteer, Team Lead, etc."
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Organization *</label>
+                    <input
+                      type="text"
+                      value={extraForm.organization}
+                      onChange={(e) => setExtraForm({ ...extraForm, organization: e.target.value })}
+                      placeholder="NGO Name, Club Name, etc."
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Location</label>
+                    <input
+                      type="text"
+                      value={extraForm.location || ''}
+                      onChange={(e) => setExtraForm({ ...extraForm, location: e.target.value })}
+                      placeholder="City, Country"
+                    />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Description *</label>
+                    <textarea
+                      value={extraForm.description}
+                      onChange={(e) => setExtraForm({ ...extraForm, description: e.target.value })}
+                      placeholder="Describe your contributions and achievements"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <button onClick={handleAddExtracurricular} className="btn-primary">
+                  {editingExtraIndex !== null ? 'Update' : 'Add'} Activity
+                </button>
+                {editingExtraIndex !== null && (
+                  <button
+                    onClick={() => {
+                      setEditingExtraIndex(null);
+                      setExtraForm({ role: '', organization: '', location: '', description: '' });
+                    }}
+                    className="btn-secondary"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Patents Tab */}
+          {activeTab === 'patents' && (
+            <div className="section">
+              <h2>Patents</h2>
+              
+              <div className="entries-list">
+                {patents.map((patent, index) => (
+                  <div key={index} className="entry-card">
+                    <div className="entry-header">
+                      <div>
+                        <h3>{patent.title}</h3>
+                        {patent.patent_number && <p className="entry-subtitle">Patent No: {patent.patent_number}</p>}
+                        <p className="entry-meta">
+                          {patent.filing_date && `Filed: ${patent.filing_date}`}
+                          {patent.grant_date && ` | Granted: ${patent.grant_date}`}
+                        </p>
+                        {patent.inventors && <p className="entry-meta">Inventors: {patent.inventors}</p>}
+                        {patent.description && <p className="entry-description">{patent.description}</p>}
+                      </div>
+                      <div className="entry-actions">
+                        <button
+                          onClick={() => handleEditPatent(index)}
+                          className="btn-icon"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeletePatent(index)}
+                          className="btn-icon btn-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="entry-form">
+                <h3>{editingPatentIndex !== null ? 'Edit Patent' : 'Add Patent'}</h3>
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>Patent Title *</label>
+                    <input
+                      type="text"
+                      value={patentForm.title}
+                      onChange={(e) => setPatentForm({ ...patentForm, title: e.target.value })}
+                      placeholder="Title of Your Patent"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Patent Number</label>
+                    <input
+                      type="text"
+                      value={patentForm.patent_number || ''}
+                      onChange={(e) => setPatentForm({ ...patentForm, patent_number: e.target.value })}
+                      placeholder="US1234567"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Inventors</label>
+                    <input
+                      type="text"
+                      value={patentForm.inventors || ''}
+                      onChange={(e) => setPatentForm({ ...patentForm, inventors: e.target.value })}
+                      placeholder="John Doe, Jane Smith"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Filing Date</label>
+                    <input
+                      type="text"
+                      value={patentForm.filing_date || ''}
+                      onChange={(e) => setPatentForm({ ...patentForm, filing_date: e.target.value })}
+                      placeholder="2023-01-15"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Grant Date</label>
+                    <input
+                      type="text"
+                      value={patentForm.grant_date || ''}
+                      onChange={(e) => setPatentForm({ ...patentForm, grant_date: e.target.value })}
+                      placeholder="2024-06-20"
+                    />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Description</label>
+                    <textarea
+                      value={patentForm.description || ''}
+                      onChange={(e) => setPatentForm({ ...patentForm, description: e.target.value })}
+                      placeholder="Brief description of the patent and its innovation"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <button onClick={handleAddPatent} className="btn-primary">
+                  {editingPatentIndex !== null ? 'Update' : 'Add'} Patent
+                </button>
+                {editingPatentIndex !== null && (
+                  <button
+                    onClick={() => {
+                      setEditingPatentIndex(null);
+                      setPatentForm({ title: '', patent_number: '', filing_date: '', grant_date: '', description: '', inventors: '' });
+                    }}
+                    className="btn-secondary"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Resume Upload Tab */}
+          {activeTab === 'upload' && (
+            <div className="section">
+              <h2>Quick Upload Resume</h2>
+              <p className="help-text">
+                Already have a resume? Paste your resume text below. Our LLM will automatically 
+                extract and populate all sections (education, experience, publications, skills, etc.) 
+                to save you time.
+              </p>
+              <textarea
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                placeholder="Paste your complete resume text here..."
+                rows={15}
+                className="full-width-textarea"
+              />
+              <button
+                onClick={handleResumeUpload}
+                disabled={loading || !resumeText.trim()}
+                className="btn-primary"
+              >
+                {loading ? 'Processing...' : 'Upload & Auto-Fill All Sections'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProfilePage;
