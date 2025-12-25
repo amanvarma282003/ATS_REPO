@@ -81,24 +81,63 @@ class GenerateResumeView(APIView):
         # Select content based on JD
         selected_content = kg.select_resume_content(jd_data)
         
-        # Get full candidate data
-        projects = Project.objects.filter(
-            id__in=selected_content['project_ids']
-        ).values('id', 'title', 'description', 'outcomes')
+        # Build comprehensive candidate data for LLM
+        selected_project_ids = set(selected_content.get('project_ids', []))
+        selected_skill_ids = set(selected_content.get('skill_ids', []))
+
+        projects = []
+        for project in profile.projects.all():
+            projects.append({
+                'id': project.id,
+                'title': project.title,
+                'description': project.description,
+                'outcomes': project.outcomes or [],
+                'duration_start': project.duration_start.isoformat() if project.duration_start else None,
+                'duration_end': project.duration_end.isoformat() if project.duration_end else None,
+                'is_selected': project.id in selected_project_ids
+            })
+
+        skills = []
+        for candidate_skill in profile.candidate_skills.select_related('skill'):
+            skills.append({
+                'id': candidate_skill.skill.id,
+                'name': candidate_skill.skill.name,
+                'category': candidate_skill.skill.category,
+                'proficiency_level': candidate_skill.proficiency_level,
+                'years_of_experience': float(candidate_skill.years_of_experience or 0),
+                'is_selected': candidate_skill.skill.id in selected_skill_ids
+            })
         
-        skills = CandidateSkill.objects.filter(
-            skill_id__in=selected_content['skill_ids']
-        ).select_related('skill').values(
-            'skill__name', 'proficiency_level', 'years_of_experience'
-        )
+        tools = []
+        for project in profile.projects.all():
+            for project_tool in project.project_tools.select_related('tool'):
+                tool = project_tool.tool
+                tools.append({
+                    'project_id': project.id,
+                    'name': tool.name,
+                    'category': tool.category
+                })
         
         candidate_data = {
             'full_name': profile.full_name,
             'email': profile.user.email,
             'phone': profile.phone,
             'location': profile.location,
-            'projects': list(projects),
-            'skills': list(skills),
+            'preferred_roles': profile.preferred_roles,
+            'summary': profile.summary,
+            'linkedin': profile.linkedin,
+            'github': profile.github,
+            'education': profile.education,
+            'experience': profile.experience,
+            'publications': profile.publications,
+            'awards': profile.awards,
+            'extracurricular': profile.extracurricular,
+            'patents': profile.patents,
+            'custom_links': profile.custom_links,
+            'projects': projects,
+            'skills': skills,
+            'tools': tools,
+            'graph_recommendations': selected_content
         }
         
         # Get LaTeX template

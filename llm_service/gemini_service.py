@@ -211,7 +211,7 @@ CRITICAL INSTRUCTIONS:
 1. Return ONLY valid LaTeX code - NO markdown code blocks, NO explanations, NO additional text
 2. Start directly with \\documentclass and end with \\end{{document}}
 3. Use the EXACT packages from the template - DO NOT add, remove, or modify any \\usepackage commands
-4. If a section has no data (empty projects, skills, etc.), fill it with: "Content to be added"
+4. If a section has no usable data, omit that section entirely instead of writing placeholder text.
 5. ESCAPE ALL SPECIAL CHARACTERS: Replace _ with \\_, & with \\&, % with \\%, $ with \\$, # with \\#
 6. DO NOT use \\\\ (double backslash) after commands like \\name{{}} - it causes LaTeX errors
 7. Keep section structure from template - do NOT add new sections or modify section titles
