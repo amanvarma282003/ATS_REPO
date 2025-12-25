@@ -52,6 +52,8 @@ export interface Experience {
   start_date: string;
   end_date: string;
   responsibilities: string[];
+  location?: string;
+  achievements?: string[];
 }
 
 export interface Publication {

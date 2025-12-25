@@ -1,7 +1,9 @@
+from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.utils.dateparse import parse_date
 from .models import (
     CandidateProfile,
     Project,
@@ -23,6 +25,67 @@ import logging
 
 logger = logging.getLogger(__name__)
 llm_service = LLMService()
+
+
+def _clean_string_list(values):
+    if not isinstance(values, list):
+        return []
+    cleaned = []
+    for item in values:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                cleaned.append(text)
+    return cleaned
+
+
+def _clean_text(value):
+    return value.strip() if isinstance(value, str) else ''
+
+
+def _normalize_entries(entries):
+    normalized = []
+    if not isinstance(entries, list):
+        return normalized
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        cleaned_entry = {}
+        for key, value in entry.items():
+            if isinstance(value, str):
+                cleaned_entry[key] = value.strip()
+            elif isinstance(value, list):
+                cleaned_entry[key] = [
+                    item.strip() if isinstance(item, str) else item
+                    for item in value
+                    if item not in (None, '')
+                ]
+            else:
+                cleaned_entry[key] = value
+        if cleaned_entry:
+            normalized.append(cleaned_entry)
+    return normalized
+
+
+def _parse_date_string(value):
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if len(text) == 7 and text.count('-') == 1:
+        text = f"{text}-01"
+    parsed = parse_date(text)
+    return parsed
+
+
+def _to_decimal(value):
+    if value in (None, ''):
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
 
 
 class CandidateProfileViewSet(viewsets.ModelViewSet):
@@ -86,49 +149,138 @@ class CandidateProfileViewSet(viewsets.ModelViewSet):
             # Get or create profile
             profile = self.get_object()
             
-            # Update personal info
+            # Update core profile fields
             personal_info = parsed_data.get('personal_info', {})
-            if personal_info.get('name'):
-                profile.full_name = personal_info['name']
-            if personal_info.get('phone'):
-                profile.phone = personal_info['phone']
+            name = _clean_text(personal_info.get('name'))
+            if name:
+                profile.full_name = name
+            phone = _clean_text(personal_info.get('phone'))
+            if phone:
+                profile.phone = phone
+            location = _clean_text(personal_info.get('location'))
+            if location:
+                profile.location = location
+
+            summary = _clean_text(parsed_data.get('summary'))
+            if summary:
+                profile.summary = summary
+
+            preferred_roles = _clean_string_list(parsed_data.get('preferred_roles'))
+            profile.preferred_roles = preferred_roles
+
+            links = parsed_data.get('links', {}) or {}
+            linkedin = _clean_text(links.get('linkedin') or parsed_data.get('linkedin'))
+            github = _clean_text(links.get('github') or parsed_data.get('github'))
+            if linkedin:
+                profile.linkedin = linkedin
+            if github:
+                profile.github = github
+
+            custom_links_source = links.get('custom_links')
+            if not isinstance(custom_links_source, list):
+                custom_links_source = parsed_data.get('custom_links', [])
+            profile.custom_links = _normalize_entries(custom_links_source)
+
+            sections_updated = {
+                'custom_links': len(profile.custom_links),
+                'preferred_roles': len(preferred_roles)
+            }
+            json_sections = ['education', 'experience', 'publications', 'awards', 'extracurricular', 'patents']
+            for section in json_sections:
+                cleaned_section = _normalize_entries(parsed_data.get(section, []))
+                if section == 'experience':
+                    normalized_exp = []
+                    for entry in cleaned_section:
+                        source_list = entry.get('responsibilities')
+                        if isinstance(source_list, list):
+                            responsibilities = _clean_string_list(source_list)
+                        else:
+                            alt = entry.get('achievements') if isinstance(entry.get('achievements'), list) else []
+                            responsibilities = _clean_string_list(alt)
+                        entry['responsibilities'] = responsibilities
+                        normalized_exp.append(entry)
+                    cleaned_section = normalized_exp
+                setattr(profile, section, cleaned_section)
+                sections_updated[section] = len(cleaned_section)
+
             profile.save()
-            
-            # Create projects
+            profile.refresh_from_db()
+
+            # Create or update projects
             projects_created = []
-            for proj_data in parsed_data.get('projects', []):
-                project, created = Project.objects.get_or_create(
+            projects_updated = []
+            for index, proj_data in enumerate(parsed_data.get('projects', []), start=1):
+                title = _clean_text(proj_data.get('title'))
+                if not title:
+                    continue
+                description = _clean_text(proj_data.get('description') or proj_data.get('summary'))
+                achievements = _clean_string_list(
+                    proj_data.get('achievements') or proj_data.get('outcomes')
+                )
+                defaults = {
+                    'description': description,
+                    'outcomes': achievements,
+                    'order': index,
+                }
+                start_date = _parse_date_string(proj_data.get('start_date'))
+                if start_date:
+                    defaults['duration_start'] = start_date
+                end_date = _parse_date_string(proj_data.get('end_date'))
+                if end_date:
+                    defaults['duration_end'] = end_date
+                project, created = Project.objects.update_or_create(
                     candidate=profile,
-                    title=proj_data['title'],
-                    defaults={
-                        'description': proj_data.get('description', ''),
-                        'outcomes': proj_data.get('outcomes', [])
-                    }
+                    title=title,
+                    defaults=defaults
                 )
                 if created:
                     projects_created.append(project.title)
+                else:
+                    projects_updated.append(project.title)
             
-            # Create skills
+            # Create or update skills
             skills_created = []
+            skills_updated = []
             for skill_data in parsed_data.get('skills', []):
+                name = _clean_text(skill_data.get('name'))
+                if not name:
+                    continue
+                category = (skill_data.get('category') or Skill.Category.TECHNICAL).upper()
+                if category not in dict(Skill.Category.choices):
+                    category = Skill.Category.TECHNICAL
                 skill, _ = Skill.objects.get_or_create(
-                    name=skill_data['name'],
-                    defaults={'category': skill_data.get('category', 'TECHNICAL')}
+                    name=name,
+                    defaults={'category': category}
                 )
-                candidate_skill, created = CandidateSkill.objects.get_or_create(
+                proficiency = (skill_data.get('proficiency_level') or CandidateSkill.ProficiencyLevel.INTERMEDIATE).upper()
+                if proficiency not in dict(CandidateSkill.ProficiencyLevel.choices):
+                    proficiency = CandidateSkill.ProficiencyLevel.INTERMEDIATE
+                defaults = {
+                    'proficiency_level': proficiency,
+                    'years_of_experience': _to_decimal(skill_data.get('years_of_experience'))
+                }
+                candidate_skill, created = CandidateSkill.objects.update_or_create(
                     candidate=profile,
                     skill=skill,
-                    defaults={'proficiency_level': 'INTERMEDIATE'}
+                    defaults=defaults
                 )
                 if created:
                     skills_created.append(skill.name)
+                else:
+                    skills_updated.append(skill.name)
             
             # Create tools
             tools_created = []
             for tool_data in parsed_data.get('tools', []):
+                name = _clean_text(tool_data.get('name'))
+                if not name:
+                    continue
+                category = (tool_data.get('category') or Tool.Category.OTHER).upper()
+                if category not in dict(Tool.Category.choices):
+                    category = Tool.Category.OTHER
                 tool, created = Tool.objects.get_or_create(
-                    name=tool_data['name'],
-                    defaults={'category': tool_data.get('category', 'FRAMEWORK')}
+                    name=name,
+                    defaults={'category': category}
                 )
                 if created:
                     tools_created.append(tool.name)
@@ -138,8 +290,11 @@ class CandidateProfileViewSet(viewsets.ModelViewSet):
             return Response({
                 'message': 'Resume parsed and profile updated successfully',
                 'projects_created': projects_created,
+                'projects_updated': projects_updated,
                 'skills_created': skills_created,
+                'skills_updated': skills_updated,
                 'tools_created': tools_created,
+                'sections_updated': sections_updated,
                 'profile': CandidateProfileSerializer(profile).data
             }, status=status.HTTP_200_OK)
             

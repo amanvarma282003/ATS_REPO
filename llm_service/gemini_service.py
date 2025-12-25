@@ -141,12 +141,13 @@ Output JSON only:
         }
         """
         prompt = f"""
-You are parsing a resume into structured JSON.
+You are an expert ATS ingestion agent. Convert the resume below into structured JSON so our database can auto-populate every profile section.
 
 ### SYSTEM INSTRUCTIONS ###
-Output ONLY valid JSON matching the exact schema below.
-Do NOT add information not present in the resume.
-If a field is missing, use empty string or empty array.
+- Output ONLY valid JSON that matches the schema exactly (no prose, no markdown fences).
+- Use empty arrays when data is missing. Do NOT invent facts.
+- Dates MUST be ISO strings in \"YYYY-MM\" or \"YYYY-MM-DD\" format.
+- Achievements/bullets should be concise action-impact statements.
 
 ### RESUME TEXT START ###
 {resume_text}
@@ -155,47 +156,140 @@ If a field is missing, use empty string or empty array.
 ### OUTPUT SCHEMA ###
 {{
     "personal_info": {{
-        "name": "full name",
+        "name": "Full legal name",
         "email": "email@example.com",
-        "phone": "phone number"
+        "phone": "phone number or empty string",
+        "location": "city, country"
     }},
+    "summary": "Two to three sentence professional summary",
+    "preferred_roles": ["Target role 1", "Target role 2"],
+    "links": {{
+        "linkedin": "https://...",
+        "github": "https://...",
+        "custom_links": [
+            {{"label": "Portfolio", "url": "https://...", "description": "Optional context"}}
+        ]
+    }},
+    "education": [
+        {{
+            "institution": "University name",
+            "degree": "Degree + major",
+            "location": "City, Country",
+            "start_date": "YYYY-MM",
+            "end_date": "YYYY-MM or Present",
+            "gpa": "CGPA or empty",
+            "highlights": ["Notable coursework, awards"]
+        }}
+    ],
+    "experience": [
+        {{
+            "company": "Company or organization",
+            "role": "Job title",
+            "location": "City, Country",
+            "start_date": "YYYY-MM",
+            "end_date": "YYYY-MM or Present",
+            "achievements": ["Action verb + metric impact bullets"]
+        }}
+    ],
     "projects": [
         {{
-            "title": "project title",
-            "description": "project description",
-            "outcomes": ["achievement 1", "achievement 2"]
+            "title": "Project name",
+            "role": "Role or responsibility",
+            "description": "2 sentence summary",
+            "start_date": "YYYY-MM",
+            "end_date": "YYYY-MM",
+            "achievements": ["Key result bullets"],
+            "tools": ["Tool or technology"]
         }}
     ],
     "skills": [
-        {{"name": "skill name", "category": "TECHNICAL"}}
+        {{
+            "name": "Skill name",
+            "category": "TECHNICAL|SOFT|DOMAIN",
+            "proficiency_level": "BEGINNER|INTERMEDIATE|EXPERT",
+            "years_of_experience": 3.5
+        }}
     ],
     "tools": [
-        {{"name": "tool name", "category": "LANGUAGE"}}
+        {{"name": "Tool/technology", "category": "LANGUAGE|FRAMEWORK|PLATFORM|OTHER"}}
+    ],
+    "publications": [
+        {{
+            "title": "Paper title",
+            "venue": "Conference or journal",
+            "date": "YYYY-MM",
+            "doi": "doi or empty",
+            "description": "One sentence summary"
+        }}
+    ],
+    "awards": [
+        {{
+            "title": "Award name",
+            "organization": "Issuer",
+            "level": "International/National/etc",
+            "date": "YYYY-MM",
+            "description": "Context"
+        }}
+    ],
+    "extracurricular": [
+        {{
+            "role": "Position held",
+            "organization": "Club/Community",
+            "location": "City, Country",
+            "description": "Impact summary"
+        }}
+    ],
+    "patents": [
+        {{
+            "title": "Patent title",
+            "patent_number": "Identifier",
+            "filing_date": "YYYY-MM",
+            "grant_date": "YYYY-MM or empty",
+            "description": "Short abstract",
+            "inventors": "Comma-separated names"
+        }}
     ]
 }}
 
 ### RULES ###
-- Extract only information explicitly stated
-- Categorize skills as TECHNICAL, SOFT, or DOMAIN
-- Categorize tools as LANGUAGE, FRAMEWORK, PLATFORM, or OTHER
-- Preserve all quantifiable outcomes/achievements
+- Derive preferred roles from objective/summary/skills if explicitly stated.
+- Keep bullet arrays ordered by relevance; limit to 4 entries per section when possible.
+- Move any URLs into either `links.linkedin`, `links.github`, or `links.custom_links`.
+- Omit sections you cannot substantiate by returning an empty array.
 
-Output JSON only:
+Return JSON only:
 """
         
         response_text = self._call_llm_with_retry(prompt)
+        clean_response = response_text.strip()
+        if clean_response.startswith('```'):
+            clean_response = re.sub(r'^```(?:json)?', '', clean_response, flags=re.IGNORECASE).strip()
+        if clean_response.endswith('```'):
+            clean_response = clean_response[:clean_response.rfind('```')].strip()
         
         # Extract and parse JSON
         try:
-            start = response_text.find('{')
-            end = response_text.rfind('}') + 1
+            start = clean_response.find('{')
+            end = clean_response.rfind('}') + 1
             if start != -1 and end > start:
-                json_text = response_text[start:end]
-                return json.loads(json_text)
+                json_text = clean_response[start:end]
+                parsed = json.loads(json_text, strict=False)
+                list_fields = [
+                    'preferred_roles', 'education', 'experience', 'projects',
+                    'skills', 'tools', 'publications', 'awards', 'extracurricular',
+                    'patents'
+                ]
+                for field in list_fields:
+                    if not isinstance(parsed.get(field), list):
+                        parsed[field] = []
+                if not isinstance(parsed.get('links'), dict):
+                    parsed['links'] = {}
+                return parsed
             else:
                 raise ValueError("No valid JSON found in response")
         except json.JSONDecodeError as e:
-            raise Exception(f"Failed to parse resume JSON: {str(e)}\nResponse: {response_text}")
+            preview = clean_response[:500]
+            raise Exception(f"Failed to parse resume JSON: {str(e)}\nResponse snippet: {preview}")
     
     def generate_latex_content(self, candidate_data: Dict[str, Any], 
                                selected_content: Dict[str, Any],

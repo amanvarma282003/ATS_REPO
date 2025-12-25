@@ -116,6 +116,32 @@ const ProfilePage: React.FC = () => {
   // Resume Upload State
   const [resumeText, setResumeText] = useState('');
 
+  const normalizeExperienceEntries = (entries?: Experience[] | any[]): Experience[] => {
+    if (!Array.isArray(entries)) {
+      return [];
+    }
+    return entries.map((exp: any): Experience => {
+      const source = Array.isArray(exp?.responsibilities)
+        ? exp.responsibilities
+        : Array.isArray(exp?.achievements)
+          ? exp.achievements
+          : [];
+      const responsibilities = source
+        .filter((item: any) => typeof item === 'string')
+        .map((item: string) => item.trim())
+        .filter(Boolean);
+      return {
+        company: exp?.company || '',
+        role: exp?.role || '',
+        start_date: exp?.start_date || '',
+        end_date: exp?.end_date || '',
+        location: exp?.location || '',
+        responsibilities,
+        achievements: Array.isArray(exp?.achievements) ? exp.achievements : undefined,
+      };
+    });
+  };
+
   useEffect(() => {
     loadProfile();
     loadProjects();
@@ -135,7 +161,7 @@ const ProfilePage: React.FC = () => {
       setGithub(data.github || '');
       setSummary(data.summary || '');
       setEducation(data.education || []);
-      setExperience(data.experience || []);
+      setExperience(normalizeExperienceEntries(data.experience));
       setPublications(data.publications || []);
       setAwards(data.awards || []);
       setExtracurricular(data.extracurricular || []);
