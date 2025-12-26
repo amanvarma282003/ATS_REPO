@@ -464,7 +464,7 @@ const ProfilePage: React.FC = () => {
       await candidateService.uploadResume(resumeText);
       showMessage('Resume uploaded! Auto-extracted information.');
       setResumeText('');
-      await loadProfile();
+      await Promise.all([loadProfile(), loadProjects(), loadMySkills()]);
     } catch (err: any) {
       showMessage(err.response?.data?.error || 'Failed to upload resume', true);
     } finally {

@@ -9,8 +9,10 @@ import Register from './pages/Register';
 import CandidateDashboard from './pages/candidate/CandidateDashboard';
 import ProfilePage from './pages/candidate/ProfilePage';
 import GenerateResume from './pages/candidate/GenerateResume';
+import BrowseJobs from './pages/candidate/BrowseJobs';
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard';
 import PostJob from './pages/recruiter/PostJob';
+import EditJob from './pages/recruiter/EditJob';
 import ApplicationsPage from './pages/recruiter/ApplicationsPage';
 import './App.css';
 
@@ -74,6 +76,14 @@ function App() {
                   </PrivateRoute>
                 }
               />
+              <Route
+                path="/candidate/jobs"
+                element={
+                  <PrivateRoute allowedRole="CANDIDATE">
+                    <BrowseJobs />
+                  </PrivateRoute>
+                }
+              />
 
               {/* Recruiter Routes */}
               <Route
@@ -89,6 +99,14 @@ function App() {
                 element={
                   <PrivateRoute allowedRole="RECRUITER">
                     <PostJob />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/recruiter/edit-job/:id"
+                element={
+                  <PrivateRoute allowedRole="RECRUITER">
+                    <EditJob />
                   </PrivateRoute>
                 }
               />
