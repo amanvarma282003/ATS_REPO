@@ -9,7 +9,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #ecf0f1;
+  background: #01040f;
 }
 
 code {
@@ -25,7 +25,8 @@ code {
 
 .main-content {
   flex: 1;
-  padding-top: 60px;
+  padding-top: 0;
+  background: #01040f;
 }
 
 .home-container {
