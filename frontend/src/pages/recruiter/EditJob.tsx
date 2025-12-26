@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { recruiterService } from '../../services/recruiter.service';
 import './PostJob.css';
 
-const PostJob: React.FC = () => {
+const EditJob: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { id } = useParams<{ id: string }>();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [generatingCompetencies, setGeneratingCompetencies] = useState(false);
 
@@ -13,6 +16,35 @@ const PostJob: React.FC = () => {
   const [company, setCompany] = useState('');
   const [description, setDescription] = useState('');
   const [competencies, setCompetencies] = useState('');
+  const [status, setStatus] = useState<'ACTIVE' | 'CLOSED'>('ACTIVE');
+
+  useEffect(() => {
+    loadJob();
+  }, [id]);
+
+  const loadJob = async () => {
+    if (!id) return;
+    
+    try {
+      const jobs = await recruiterService.getJobs();
+      const job = jobs.find(j => j.id === parseInt(id));
+      
+      if (!job) {
+        setError('Job not found');
+        return;
+      }
+
+      setTitle(job.title);
+      setCompany(job.company);
+      setDescription(job.description);
+      setCompetencies((job.required_competencies || []).join(', '));
+      setStatus(job.status || 'ACTIVE');
+    } catch (err: any) {
+      setError('Failed to load job');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +54,9 @@ const PostJob: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    if (!id) return;
+
+    setSaving(true);
     setError('');
 
     try {
@@ -31,18 +65,19 @@ const PostJob: React.FC = () => {
         .map(c => c.trim())
         .filter(c => c.length > 0);
 
-      await recruiterService.createJob({
+      await recruiterService.updateJob(parseInt(id), {
         title,
         company,
         description,
         required_competencies: competenciesArray,
+        status,
       });
 
       navigate('/recruiter/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to create job');
+      setError(err.response?.data?.error || 'Failed to update job');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -69,9 +104,32 @@ const PostJob: React.FC = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+    
+    if (!window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    setError('');
+
+    try {
+      await recruiterService.deleteJob(parseInt(id));
+      navigate('/recruiter/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete job');
+      setDeleting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="post-job-container">Loading...</div>;
+  }
+
   return (
     <div className="post-job-container">
-      <h1>Post New Job</h1>
+      <h1>Edit Job</h1>
 
       {error && <div className="error-message">{error}</div>}
 
@@ -139,21 +197,43 @@ const PostJob: React.FC = () => {
           </small>
         </div>
 
+        <div className="form-group">
+          <label htmlFor="status">Status *</label>
+          <select
+            id="status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as 'ACTIVE' | 'CLOSED')}
+            required
+          >
+            <option value="ACTIVE">Active</option>
+            <option value="CLOSED">Closed</option>
+          </select>
+        </div>
+
         <div className="form-actions">
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="btn-danger"
+            disabled={saving || deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete Job'}
+          </button>
+          <div style={{ flex: 1 }}></div>
           <button
             type="button"
             onClick={() => navigate('/recruiter/dashboard')}
             className="btn-secondary"
-            disabled={loading}
+            disabled={saving || deleting}
           >
             Cancel
           </button>
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading}
+            disabled={saving || deleting}
           >
-            {loading ? 'Posting...' : 'Post Job'}
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </form>
@@ -161,4 +241,4 @@ const PostJob: React.FC = () => {
   );
 };
 
-export default PostJob;
+export default EditJob;
