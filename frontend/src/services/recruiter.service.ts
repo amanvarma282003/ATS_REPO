@@ -31,4 +31,35 @@ export const recruiterService = {
     const response = await api.post('/recruiter/feedback/', data);
     return response.data;
   },
+
+  parseJobDescription: async (jdText: string): Promise<{
+    title: string;
+    company: string;
+    required_skills: string[];
+    optional_skills: string[];
+  }> => {
+    const response = await api.post('/recruiter/jobs/parse_jd/', { jd_text: jdText });
+    return response.data;
+  },
+
+  updateJob: async (id: number, data: Partial<JobDescription>): Promise<JobDescription> => {
+    const response = await api.patch(`/recruiter/jobs/${id}/`, data);
+    return response.data;
+  },
+
+  updateJobStatus: async (id: number, status: 'ACTIVE' | 'CLOSED'): Promise<JobDescription> => {
+    const response = await api.patch(`/recruiter/jobs/${id}/`, { status });
+    return response.data;
+  },
+
+  deleteJob: async (id: number): Promise<void> => {
+    await api.delete(`/recruiter/jobs/${id}/`);
+  },
+
+  downloadApplicationResume: async (applicationId: number): Promise<Blob> => {
+    const response = await api.get(`/recruiter/applications/${applicationId}/download/`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };

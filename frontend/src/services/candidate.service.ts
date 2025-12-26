@@ -1,5 +1,13 @@
 import api from './api';
-import { CandidateProfile, Project, Skill, CandidateSkill } from '../types';
+import {
+  CandidateProfile,
+  Project,
+  Skill,
+  CandidateSkill,
+  CandidateApplicationResponse,
+  CandidateApplicationPreview,
+  Application,
+} from '../types';
 
 export const candidateService = {
   getProfile: async (): Promise<CandidateProfile> => {
@@ -59,5 +67,23 @@ export const candidateService = {
 
   deleteMySkill: async (id: number): Promise<void> => {
     await api.delete(`/candidate/my-skills/${id}/`);
+  },
+
+  applyToJob: async (payload: {
+    job_id: number;
+    resume_id?: string;
+  }): Promise<CandidateApplicationResponse> => {
+    const response = await api.post('/candidate/applications/', payload);
+    return response.data;
+  },
+
+  previewApplication: async (payload: { job_id: number }): Promise<CandidateApplicationPreview> => {
+    const response = await api.post('/candidate/applications/preview/', payload);
+    return response.data;
+  },
+
+  getMyApplications: async (): Promise<Application[]> => {
+    const response = await api.get('/candidate/applications/');
+    return response.data;
   },
 };

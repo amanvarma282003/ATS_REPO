@@ -34,6 +34,7 @@ export interface CandidateProfile {
   extracurricular?: Extracurricular[];
   patents?: Patent[];
   custom_links?: CustomLink[];
+  projects?: Project[];
   created_at: string;
   updated_at: string;
 }
@@ -124,9 +125,17 @@ export interface JobDescription {
   company: string;
   description: string;
   required_competencies: string[];
-  is_active?: boolean;
+  status?: 'ACTIVE' | 'CLOSED';
   posted_at: string;
   updated_at: string;
+}
+
+export interface MatchExplanation {
+  decision: string;
+  confidence: number;
+  explanation: string;
+  strengths: string[];
+  gaps: string[];
 }
 
 export interface Application {
@@ -146,13 +155,7 @@ export interface Application {
   resume_version: any;
   generated_pdf_path: string;
   status: 'PENDING' | 'SHORTLISTED' | 'REJECTED' | 'INTERVIEWED' | 'HIRED';
-  match_explanation: {
-    decision: string;
-    confidence: number;
-    explanation: string;
-    strengths: string[];
-    gaps: string[];
-  };
+  match_explanation: MatchExplanation;
   applied_at: string;
   updated_at: string;
 }
@@ -189,4 +192,30 @@ export interface GeneratedResumeRecord {
 
 export interface ResumeHistoryResponse {
   resumes: GeneratedResumeRecord[];
+}
+
+export interface SelectedContentSummary {
+  project_ids: number[];
+  skill_ids: number[];
+  match_strength?: number;
+}
+
+export interface CandidateApplicationResponse {
+  message: string;
+  application_id: number;
+  job_id: number;
+  resume_id: string;
+  has_pdf: boolean;
+  match_explanation: MatchExplanation;
+  selected_content: SelectedContentSummary;
+  resume_source: 'existing' | 'snapshot';
+}
+
+export interface CandidateApplicationPreview {
+  job_id: number;
+  job_title: string;
+  match_strength: number;
+  selected_projects: number;
+  selected_skills: number;
+  selected_content: SelectedContentSummary;
 }
