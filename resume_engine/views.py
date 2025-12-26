@@ -18,6 +18,7 @@ from knowledge_graph.graph_engine import KnowledgeGraph
 from llm_service.gemini_service import llm_service
 from resume_engine.generator import resume_generator
 from .models import GeneratedResume
+from .utils import build_candidate_snapshot, load_resume_template, build_job_context
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +27,7 @@ def _resolve_job_context(job_id, jd_text):
     """Return (job, jd_data, source_enum) for generation/label flows."""
     if job_id:
         job = get_object_or_404(JobDescription, id=job_id)
-        jd_data = {
-            'id': job.id,
-            'title': job.title,
-            'company': job.company,
-            'description': job.description,
-            'required_competencies': job.competencies.get('required_competencies', []),
-            'optional_competencies': job.competencies.get('optional_competencies', []),
-        }
+        jd_data = build_job_context(job)
         return job, jd_data, GeneratedResume.Source.JOB
     if jd_text:
         jd_data = llm_service.parse_job_description(jd_text)
@@ -109,68 +103,10 @@ class GenerateResumeView(APIView):
         selected_content = kg.select_resume_content(jd_data)
         
         # Build comprehensive candidate data for LLM
-        selected_project_ids = set(selected_content.get('project_ids', []))
-        selected_skill_ids = set(selected_content.get('skill_ids', []))
-
-        projects = []
-        for project in profile.projects.all():
-            projects.append({
-                'id': project.id,
-                'title': project.title,
-                'description': project.description,
-                'outcomes': project.outcomes or [],
-                'duration_start': project.duration_start.isoformat() if project.duration_start else None,
-                'duration_end': project.duration_end.isoformat() if project.duration_end else None,
-                'is_selected': project.id in selected_project_ids
-            })
-
-        skills = []
-        for candidate_skill in profile.candidate_skills.select_related('skill'):
-            skills.append({
-                'id': candidate_skill.skill.id,
-                'name': candidate_skill.skill.name,
-                'category': candidate_skill.skill.category,
-                'proficiency_level': candidate_skill.proficiency_level,
-                'years_of_experience': float(candidate_skill.years_of_experience or 0),
-                'is_selected': candidate_skill.skill.id in selected_skill_ids
-            })
-        
-        tools = []
-        for project in profile.projects.all():
-            for project_tool in project.project_tools.select_related('tool'):
-                tool = project_tool.tool
-                tools.append({
-                    'project_id': project.id,
-                    'name': tool.name,
-                    'category': tool.category
-                })
-        
-        candidate_data = {
-            'full_name': profile.full_name,
-            'email': profile.user.email,
-            'phone': profile.phone,
-            'location': profile.location,
-            'preferred_roles': profile.preferred_roles,
-            'summary': profile.summary,
-            'linkedin': profile.linkedin,
-            'github': profile.github,
-            'education': profile.education,
-            'experience': profile.experience,
-            'publications': profile.publications,
-            'awards': profile.awards,
-            'extracurricular': profile.extracurricular,
-            'patents': profile.patents,
-            'custom_links': profile.custom_links,
-            'projects': projects,
-            'skills': skills,
-            'tools': tools,
-            'graph_recommendations': selected_content
-        }
+        candidate_data = build_candidate_snapshot(profile, selected_content)
         
         # Get LaTeX template
-        template_path = os.path.join(os.path.dirname(__file__), '..', 'template.tex')
-        with open(template_path, 'r') as f:
-            template_content = f.read()
+        template_content = load_resume_template()
         
         # Generate complete LaTeX document using LLM
         logger.info(f"Attempt {attempt_number}: Generating LaTeX document with Gemini")
