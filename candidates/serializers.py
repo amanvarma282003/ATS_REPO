@@ -13,6 +13,7 @@ from .models import (
 class CandidateProfileSerializer(serializers.ModelSerializer):
     """Serializer for CandidateProfile model."""
     email = serializers.EmailField(source='user.email', read_only=True)
+    projects = serializers.SerializerMethodField()
     
     class Meta:
         model = CandidateProfile
@@ -20,10 +21,14 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
             'id', 'email', 'full_name', 'phone', 'location', 'preferred_roles',
             'summary', 'linkedin', 'github', 
             'education', 'experience', 'publications', 'awards', 'extracurricular',
-            'patents', 'custom_links',
+            'patents', 'custom_links', 'projects',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_projects(self, obj):
+        queryset = obj.projects.all().order_by('order', '-duration_end', '-created_at')
+        return ProjectSerializer(queryset, many=True).data
 
 
 class ToolSerializer(serializers.ModelSerializer):

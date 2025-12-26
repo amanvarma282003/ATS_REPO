@@ -6,7 +6,9 @@ from .views import (
     SkillViewSet,
     CandidateSkillViewSet,
     ToolViewSet,
-    DomainViewSet
+    DomainViewSet,
+    CandidateApplicationView,
+    CandidateApplicationPreviewView
 )
 
 app_name = 'candidates'
@@ -30,5 +32,7 @@ urlpatterns = [
     path('profile/upload_resume/', 
          CandidateProfileViewSet.as_view({'post': 'upload_resume'}), 
          name='profile-upload-resume'),
+    path('applications/preview/', CandidateApplicationPreviewView.as_view(), name='applications-preview'),
+    path('applications/', CandidateApplicationView.as_view(), name='applications'),
     path('', include(router.urls)),
 ]

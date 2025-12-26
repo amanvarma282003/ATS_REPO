@@ -1,8 +1,11 @@
 from decimal import Decimal, InvalidOperation
+import uuid
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from .models import (
     CandidateProfile,
@@ -20,6 +23,11 @@ from .serializers import (
     ToolSerializer,
     DomainSerializer
 )
+from recruiters.models import JobDescription, Application
+from recruiters.serializers import ApplicationSerializer
+from resume_engine.models import GeneratedResume
+from knowledge_graph.graph_engine import KnowledgeGraph
+from resume_engine.utils import build_candidate_snapshot, build_job_context
 from llm_service.gemini_service import LLMService
 import logging
 
@@ -86,6 +94,7 @@ def _to_decimal(value):
         return Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError):
         return None
+
 
 
 class CandidateProfileViewSet(viewsets.ModelViewSet):
@@ -395,3 +404,115 @@ class DomainViewSet(viewsets.ModelViewSet):
     serializer_class = DomainSerializer
     permission_classes = [IsAuthenticated]
     queryset = Domain.objects.all()
+
+
+class CandidateApplicationPreviewView(APIView):
+    """Return match-strength preview for a candidate applying to a job."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        profile = get_object_or_404(CandidateProfile, user=request.user)
+        job_id = request.data.get('job_id')
+
+        if not job_id:
+            return Response({'error': 'job_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        job = get_object_or_404(JobDescription, id=job_id)
+
+        if job.status != JobDescription.Status.ACTIVE:
+            return Response({'error': 'Job is not accepting applications'}, status=status.HTTP_400_BAD_REQUEST)
+
+        kg = KnowledgeGraph()
+        kg.build_candidate_graph(profile)
+        jd_data = build_job_context(job)
+        selected_content = kg.select_resume_content(jd_data)
+
+        return Response({
+            'job_id': job.id,
+            'job_title': job.title,
+            'match_strength': selected_content.get('match_strength', 0) or 0,
+            'selected_projects': len(selected_content.get('project_ids', [])),
+            'selected_skills': len(selected_content.get('skill_ids', [])),
+            'selected_content': selected_content,
+        }, status=status.HTTP_200_OK)
+
+
+class CandidateApplicationView(APIView):
+    """Allow candidates to apply to jobs using snapshots or existing resumes."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = get_object_or_404(CandidateProfile, user=request.user)
+        applications = Application.objects.filter(candidate=profile).order_by('-applied_at')
+        serializer = ApplicationSerializer(applications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        profile = get_object_or_404(CandidateProfile, user=request.user)
+        job_id = request.data.get('job_id')
+        resume_id = request.data.get('resume_id')
+
+        if not job_id:
+            return Response({'error': 'job_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        job = get_object_or_404(JobDescription, id=job_id)
+
+        if job.status != JobDescription.Status.ACTIVE:
+            return Response({'error': 'Job is not accepting applications'}, status=status.HTTP_400_BAD_REQUEST)
+
+        kg = KnowledgeGraph()
+        kg.build_candidate_graph(profile)
+        jd_data = build_job_context(job)
+        selected_content = kg.select_resume_content(jd_data)
+        candidate_snapshot = build_candidate_snapshot(profile, selected_content)
+
+        resume_identifier = str(uuid.uuid4())
+        pdf_path = ''
+        resume_reference = None
+
+        if resume_id:
+            resume_reference = GeneratedResume.objects.filter(
+                candidate=profile,
+                resume_id=resume_id
+            ).first()
+            if not resume_reference:
+                return Response({'error': 'Resume not found'}, status=status.HTTP_404_NOT_FOUND)
+            resume_identifier = resume_reference.resume_id
+            pdf_path = resume_reference.pdf_path
+
+        try:
+            match_explanation = llm_service.generate_match_explanation(selected_content)
+        except Exception as exc:
+            logger.warning(f"Match explanation generation failed: {exc}")
+            match_explanation = {
+                'decision': 'REVIEW',
+                'confidence': 0.0,
+                'explanation': 'Match explanation pending due to temporary error.',
+                'strengths': [],
+                'gaps': [],
+                'error': str(exc),
+            }
+
+        application_defaults = {
+            'resume_id': resume_identifier,
+            'resume_version': candidate_snapshot,
+            'generated_pdf_path': pdf_path,
+            'match_explanation': match_explanation,
+        }
+
+        application, created = Application.objects.update_or_create(
+            candidate=profile,
+            job=job,
+            defaults=application_defaults
+        )
+
+        return Response({
+            'message': 'Application submitted successfully' if created else 'Application updated successfully',
+            'application_id': application.id,
+            'job_id': job.id,
+            'resume_id': resume_identifier,
+            'has_pdf': bool(pdf_path),
+            'match_explanation': match_explanation,
+            'selected_content': selected_content,
+            'resume_source': 'existing' if resume_reference else 'snapshot',
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
