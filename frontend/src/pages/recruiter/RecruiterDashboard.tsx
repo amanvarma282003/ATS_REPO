@@ -8,6 +8,7 @@ const RecruiterDashboard: React.FC = () => {
   const [jobs, setJobs] = useState<JobDescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [updatingJobId, setUpdatingJobId] = useState<number | null>(null);
 
   useEffect(() => {
     loadJobs();
@@ -21,6 +22,21 @@ const RecruiterDashboard: React.FC = () => {
       setError('Failed to load jobs');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleJobStatus = async (jobId: number, currentStatus: string | undefined) => {
+    if (!currentStatus) return;
+    
+    setUpdatingJobId(jobId);
+    try {
+      const newStatus = currentStatus === 'ACTIVE' ? 'CLOSED' : 'ACTIVE';
+      await recruiterService.updateJobStatus(jobId, newStatus);
+      await loadJobs();
+    } catch (err: any) {
+      setError('Failed to update job status');
+    } finally {
+      setUpdatingJobId(null);
     }
   };
 
@@ -46,7 +62,7 @@ const RecruiterDashboard: React.FC = () => {
         </div>
         <div className="stat-card">
           <h3>Active Listings</h3>
-          <p className="stat-number">{jobs.filter(j => j.is_active).length}</p>
+          <p className="stat-number">{jobs.filter(j => j.status === 'ACTIVE').length}</p>
         </div>
       </div>
 
@@ -62,8 +78,8 @@ const RecruiterDashboard: React.FC = () => {
               <div key={job.id} className="job-card">
                 <div className="job-header">
                   <h3>{job.title}</h3>
-                  <span className={`job-status ${job.is_active ? 'active' : 'inactive'}`}>
-                    {job.is_active ? 'Active' : 'Inactive'}
+                  <span className={`job-status ${job.status === 'ACTIVE' ? 'active' : 'inactive'}`}>
+                    {job.status === 'ACTIVE' ? 'Active' : 'Closed'}
                   </span>
                 </div>
                 <p className="job-company">{job.company}</p>
@@ -72,11 +88,11 @@ const RecruiterDashboard: React.FC = () => {
                 <div className="job-competencies">
                   <strong>Required Competencies:</strong>
                   <div className="competencies-list">
-                    {job.required_competencies.slice(0, 5).map((comp, idx) => (
+                    {(job.required_competencies || []).slice(0, 5).map((comp, idx) => (
                       <span key={idx} className="competency-badge">{comp}</span>
                     ))}
-                    {job.required_competencies.length > 5 && (
-                      <span className="competency-badge">+{job.required_competencies.length - 5} more</span>
+                    {(job.required_competencies || []).length > 5 && (
+                      <span className="competency-badge">+{(job.required_competencies || []).length - 5} more</span>
                     )}
                   </div>
                 </div>
@@ -85,6 +101,16 @@ const RecruiterDashboard: React.FC = () => {
                   <Link to={`/recruiter/applications/${job.id}`} className="btn-secondary">
                     View Applications
                   </Link>
+                  <Link to={`/recruiter/edit-job/${job.id}`} className="btn-secondary">
+                    Edit Job
+                  </Link>
+                  <button
+                    onClick={() => toggleJobStatus(job.id, job.status)}
+                    className="btn-secondary"
+                    disabled={updatingJobId === job.id}
+                  >
+                    {updatingJobId === job.id ? 'Updating...' : (job.status === 'ACTIVE' ? 'Close Job' : 'Reopen Job')}
+                  </button>
                 </div>
               </div>
             ))}

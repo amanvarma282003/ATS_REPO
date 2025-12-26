@@ -10,6 +10,7 @@ const ApplicationsPage: React.FC = () => {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   // Feedback form
   const [showFeedback, setShowFeedback] = useState(false);
@@ -75,6 +76,27 @@ const ApplicationsPage: React.FC = () => {
     }
   };
 
+  const handleDownloadResume = async (application: Application) => {
+    setDownloadingId(application.id);
+    setError('');
+    try {
+      const blob = await recruiterService.downloadApplicationResume(application.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const candidateLabel = application.candidate_info?.full_name || application.candidate_info?.email || `candidate-${application.candidate}`;
+      link.download = `${candidateLabel || 'candidate'}-application-${application.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to download resume');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   if (loading) {
     return <div className="applications-container">Loading...</div>;
   }
@@ -118,14 +140,13 @@ const ApplicationsPage: React.FC = () => {
                 >
                   View Details
                 </button>
-                <a
-                  href={`http://127.0.0.1:8000${app.generated_pdf_path}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => handleDownloadResume(app)}
                   className="btn-secondary"
+                  disabled={downloadingId === app.id}
                 >
-                  View Resume PDF
-                </a>
+                  {downloadingId === app.id ? 'Preparing PDF...' : 'View Resume PDF'}
+                </button>
                 {app.status === 'PENDING' && (
                   <button
                     onClick={() => handleOpenFeedback(app.id)}
