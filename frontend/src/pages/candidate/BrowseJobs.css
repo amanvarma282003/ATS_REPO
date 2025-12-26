@@ -1,8 +1,12 @@
 .browse-jobs-container {
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  max-width: none;
+  margin: 0;
+  padding: 2.5rem clamp(2rem, 6vw, 5rem) 4rem;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% -10%, rgba(6, 182, 212, 0.45), transparent 55%),
+    radial-gradient(circle at 80% 0%, rgba(255, 138, 166, 0.35), transparent 60%),
+    linear-gradient(135deg, #01040f, #04122c 50%, #031b2f 100%);
 }
 
 .browse-banner {
@@ -27,12 +31,12 @@
 }
 
 .browse-header h1 {
-  color: #2c3e50;
+  color: #ecf2ff;
   margin-bottom: 0.5rem;
 }
 
 .browse-subtitle {
-  color: #7f8c8d;
+  color: rgba(226, 236, 255, 0.7);
   font-size: 1.1rem;
 }
 
