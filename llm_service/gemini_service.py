@@ -1,12 +1,17 @@
 from google import genai
 from google.genai import types
 from django.conf import settings
+from django.db.models import F
+from django.utils import timezone
+import hashlib
 import json
 import time
 import os
 import re
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+
+from .models import LLMUsage
 
 logger = logging.getLogger(__name__)
 
@@ -18,28 +23,127 @@ class LLMService:
     """
     
     def __init__(self):
-        # Get API key from environment (GEMINI_API_KEY) automatically
-        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.model = "gemini-2.5-flash"
+        configured_keys: List[str] = getattr(settings, 'GEMINI_API_KEYS', [])
+        if not configured_keys:
+            raise ValueError("No Gemini API keys configured. Set GEMINI_API_KEYS or GEMINI_API_KEY env vars.")
+
+        self.api_keys = configured_keys
+        self.clients = {key: genai.Client(api_key=key) for key in self.api_keys}
+        self.api_key_fingerprints = {
+            key: self._fingerprint_api_key(key) for key in self.api_keys
+        }
+        self.model_cascade = [
+            "gemini-2.5-flash",
+            "gemini-3-flash",
+            "gemini-2.5-flash-lite",
+            "gemma-3-27b-it",
+        ]
+        self.model_limits = {
+            "gemini-2.5-flash": 20,
+            "gemini-3-flash": 20,
+            "gemini-2.5-flash-lite": 20,
+            "gemma-3-27b-it": 14400,
+        }
         self.max_retries = settings.LLM_MAX_RETRIES
         self.timeout = settings.LLM_TIMEOUT
     
-    def _call_llm_with_retry(self, prompt: str, response_schema: Optional[Dict] = None) -> str:
-        """
-        Call LLM with retry logic.
-        """
-        for attempt in range(self.max_retries):
-            try:
-                response = self.client.models.generate_content(
-                    model=self.model,
-                    contents=prompt
+    def _fingerprint_api_key(self, api_key: str) -> str:
+        return hashlib.sha256(api_key.encode('utf-8')).hexdigest()[:12]
+
+    def _is_quota_error(self, error: Exception) -> bool:
+        message = str(error).upper()
+        return any(keyword in message for keyword in ["RESOURCE_EXHAUSTED", "QUOTA", "429"])
+
+    def _claim_usage_slot(self, model_name: str, api_key: str) -> bool:
+        limit = self.model_limits.get(model_name)
+        if not limit:
+            return True
+
+        fingerprint = self.api_key_fingerprints[api_key]
+        usage, _ = LLMUsage.objects.get_or_create(
+            model_name=model_name,
+            api_key_fingerprint=fingerprint,
+            date=timezone.now().date(),
+            defaults={'count': 0},
+        )
+
+        updated = LLMUsage.objects.filter(
+            pk=usage.pk,
+            count__lt=limit,
+        ).update(count=F('count') + 1, updated_at=timezone.now())
+
+        return bool(updated)
+
+    def _call_llm_with_retry(
+        self,
+        prompt: str,
+        response_schema: Optional[Dict] = None,
+        config: Optional[types.GenerateContentConfig] = None,
+    ) -> str:
+        """Call LLM with cascading models and API keys, reacting to quota limits."""
+
+        last_error: Optional[Exception] = None
+
+        for key_index, api_key in enumerate(self.api_keys):
+            client = self.clients[api_key]
+            for model_index, model_name in enumerate(self.model_cascade):
+                attempt = 0
+                while attempt < self.max_retries:
+                    if not self._claim_usage_slot(model_name, api_key):
+                        last_error = Exception(
+                            f"Daily quota reached for {model_name} using API key #{key_index + 1}"
+                        )
+                        logger.info(
+                            "Daily quota reached for model %s (API key #%s). Skipping until reset.",
+                            model_name,
+                            key_index + 1,
+                        )
+                        break
+
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=prompt,
+                            config=config,
+                        )
+                        if key_index > 0 or model_index > 0:
+                            logger.info(
+                                "LLM request succeeded using model %s (API key #%s)",
+                                model_name,
+                                key_index + 1,
+                            )
+                        return response.text
+                    except Exception as exc:
+                        last_error = exc
+                        quota_error = self._is_quota_error(exc)
+                        attempt += 1
+
+                        if not quota_error:
+                            if attempt < self.max_retries:
+                                time.sleep(2 ** (attempt - 1))
+                                continue
+                            raise Exception(
+                                f"LLM call failed after {self.max_retries} attempts using {model_name} "
+                                f"(API key #{key_index + 1}): {str(exc)}"
+                            )
+
+                        logger.warning(
+                            "LLM quota exhausted for model %s (API key #%s). Moving to next model if available.",
+                            model_name,
+                            key_index + 1,
+                        )
+                        break  # move to next model in cascade
+
+            if key_index < len(self.api_keys) - 1:
+                logger.info(
+                    "All configured models quota-limited for API key #%s. Trying next API key...",
+                    key_index + 1,
                 )
-                return response.text
-            except Exception as e:
-                if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                    continue
-                raise Exception(f"LLM call failed after {self.max_retries} attempts: {str(e)}")
+
+        raise Exception(
+            "LLM call failed after exhausting all configured models and API keys: "
+            f"{str(last_error) if last_error else 'unknown error'}"
+        )
     
     def parse_job_description(self, jd_text: str) -> Dict[str, Any]:
         """
@@ -76,17 +180,20 @@ Do NOT invent information not present in the job description.
     "optional_competencies": [
         {{"name": "competency name", "description": "brief description"}}
     ],
-    "required_skills": ["skill1", "skill2"],
-    "optional_skills": ["skill3", "skill4"]
+    "required_skills": ["list ALL required skills/technologies/tools mentioned"],
+    "optional_skills": ["list ALL optional/preferred skills mentioned"]
 }}
 
 ### RULES ###
 - Required competencies are must-haves mentioned as requirements
 - Optional competencies are nice-to-haves or preferences
-- Extract actual skills/technologies mentioned
+- Extract ALL skills/technologies/tools mentioned in the JD (programming languages, frameworks, databases, cloud platforms, methodologies, tools, etc.)
+- Include every technical skill, soft skill, domain knowledge, certification, or qualification mentioned
+- Do not limit the number of skills - extract everything relevant
 - Keep descriptions brief (1 sentence max)
-- Use consistent naming conventions
+- Use consistent naming conventions (e.g., "JavaScript" not "JS", "Python 3" not "Python3")
 - Derive the company name from any "About the company" or header text; if truly missing, return an empty string (do NOT fabricate a fantasy name)
+- Be comprehensive - a typical JD should yield 10-20+ skills
 
 Output JSON only:
 """
@@ -342,15 +449,11 @@ IMPORTANT: Return ONLY the complete LaTeX document with candidate data filled in
         
         try:
             logger.debug("[LLM] Sending LaTeX generation request to Gemini...")
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.3
-                )
-            )
+            latex_code = self._call_llm_with_retry(
+                prompt,
+                config=types.GenerateContentConfig(temperature=0.3)
+            ).strip()
             logger.debug("[LLM] LaTeX content received from Gemini")
-            latex_code = response.text.strip()
             
             # Clean up any markdown code fences (like your code does)
             latex_code = re.sub(r'^```latex\s*', '', latex_code)

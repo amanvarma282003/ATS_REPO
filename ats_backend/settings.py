@@ -183,6 +183,23 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Gemini API Settings
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_SECONDARY_API_KEY = os.getenv('GEMINI_API_KEY_SECONDARY', '')
+GEMINI_API_KEYS_RAW = os.getenv('GEMINI_API_KEYS', '')
+
+if GEMINI_API_KEYS_RAW:
+    GEMINI_API_KEYS = [key.strip() for key in GEMINI_API_KEYS_RAW.split(',') if key.strip()]
+else:
+    GEMINI_API_KEYS = [key for key in (GEMINI_API_KEY, GEMINI_SECONDARY_API_KEY) if key]
+
+# Ensure list is deduplicated while preserving order
+seen = set()
+deduped_keys = []
+for api_key in GEMINI_API_KEYS:
+    if api_key not in seen:
+        deduped_keys.append(api_key)
+        seen.add(api_key)
+GEMINI_API_KEYS = deduped_keys
+
 LLM_MAX_RETRIES = int(os.getenv('LLM_MAX_RETRIES', 3))
 LLM_TIMEOUT = int(os.getenv('LLM_TIMEOUT', 30))
 
