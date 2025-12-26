@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     JobDescriptionViewSet,
     ApplicationViewSet,
-    RecruiterFeedbackViewSet
+    RecruiterFeedbackViewSet,
+    RecruiterApplicationDownloadView
 )
 
 app_name = 'recruiters'
@@ -15,4 +16,7 @@ router.register(r'feedback', RecruiterFeedbackViewSet, basename='feedback')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('applications/<int:pk>/download/',
+         RecruiterApplicationDownloadView.as_view(),
+         name='application-download'),
 ]

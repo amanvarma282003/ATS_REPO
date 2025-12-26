@@ -1,7 +1,12 @@
+import os
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from .models import JobDescription, Application, RecruiterFeedback
 from .serializers import (
     JobDescriptionSerializer,
@@ -9,9 +14,42 @@ from .serializers import (
     RecruiterFeedbackSerializer
 )
 from knowledge_graph.graph_engine import KnowledgeGraph
+from llm_service.gemini_service import llm_service
+from resume_engine.generator import resume_generator
+from resume_engine.utils import load_resume_template, build_job_context
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _generate_pdf_for_application(application: Application) -> str:
+    """Generate a PDF for the given application using stored snapshot data."""
+    candidate_data = application.resume_version or {}
+    if not candidate_data:
+        raise ValueError('Application missing resume snapshot data.')
+
+    selected_content = candidate_data.get('graph_recommendations') or {}
+    template_content = load_resume_template()
+    job_context = build_job_context(application.job)
+
+    latex_document = llm_service.generate_latex_content(
+        candidate_data,
+        selected_content,
+        job_context.get('title') or application.job.title,
+        template_content
+    )
+
+    resume_payload = resume_generator.generate_resume(
+        candidate_data,
+        latex_document,
+        application.candidate.id
+    )
+
+    application.resume_id = resume_payload['resume_id']
+    application.generated_pdf_path = resume_payload['pdf_path']
+    application.save(update_fields=['resume_id', 'generated_pdf_path', 'updated_at'])
+
+    return resume_payload['pdf_path']
 
 
 class JobDescriptionViewSet(viewsets.ModelViewSet):
@@ -43,6 +81,22 @@ class JobDescriptionViewSet(viewsets.ModelViewSet):
         applications = Application.objects.filter(job=job)
         serializer = ApplicationSerializer(applications, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def parse_jd(self, request):
+        """Parse job description text and return structured competencies."""
+        jd_text = request.data.get('jd_text')
+        if not jd_text:
+            return Response({'error': 'jd_text is required'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            parsed_data = llm_service.parse_job_description(jd_text)
+            return Response(parsed_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"JD parsing failed: {e}")
+            return Response({'error': f'Failed to parse job description: {str(e)}'}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ApplicationViewSet(viewsets.ModelViewSet):
@@ -64,7 +118,15 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 return Application.objects.none()
         elif self.request.user.is_recruiter:
             # Recruiters see applications to their jobs
-            return Application.objects.filter(job__recruiter=self.request.user)
+            queryset = Application.objects.filter(job__recruiter=self.request.user)
+            job_id = self.request.query_params.get('job_id')
+            if job_id:
+                try:
+                    job_id = int(job_id)
+                except (TypeError, ValueError):
+                    return Application.objects.none()
+                queryset = queryset.filter(job_id=job_id)
+            return queryset
         return Application.objects.none()
 
 
@@ -120,3 +182,32 @@ class RecruiterFeedbackViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Failed to update graph weights: {e}")
             # Don't fail the request if graph update fails
+
+
+class RecruiterApplicationDownloadView(APIView):
+    """Allow recruiters to download candidate resumes with lazy PDF generation."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        application = get_object_or_404(Application, pk=pk)
+
+        if not request.user.is_recruiter or application.job.recruiter != request.user:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        pdf_path = application.generated_pdf_path
+        if not pdf_path or not os.path.exists(pdf_path):
+            try:
+                pdf_path = _generate_pdf_for_application(application)
+            except Exception as exc:
+                logger.error(f"Failed to generate PDF for application {application.id}: {exc}")
+                return Response({'error': 'Unable to generate resume PDF'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if not os.path.exists(pdf_path):
+            return Response({'error': 'Resume file not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        filename = f"application_{application.id}.pdf"
+        return FileResponse(
+            open(pdf_path, 'rb'),
+            as_attachment=True,
+            filename=filename
+        )
