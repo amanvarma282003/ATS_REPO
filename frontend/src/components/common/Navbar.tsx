@@ -29,7 +29,7 @@ const Navbar: React.FC = () => {
 
   const secondaryAction = user?.role === 'CANDIDATE'
     ? { to: '/candidate/jobs', label: 'Browse Roles' }
-    : { to: '/recruiter/dashboard', label: 'View Pipeline' };
+    : null;
 
   const userInitial = user?.email?.[0]?.toUpperCase() || '?';
   const roleBadge = user?.role === 'CANDIDATE' ? 'Candidate' : user?.role === 'RECRUITER' ? 'Recruiter' : '';
@@ -56,9 +56,11 @@ const Navbar: React.FC = () => {
 
         {user ? (
           <div className="nav-actions">
-            <Link to={secondaryAction.to} className="btn btn--ghost nav-btn">
-              {secondaryAction.label}
-            </Link>
+            {secondaryAction && (
+              <Link to={secondaryAction.to} className="btn btn--ghost nav-btn">
+                {secondaryAction.label}
+              </Link>
+            )}
             <Link to={primaryAction.to} className="btn btn--primary nav-btn">
               {primaryAction.label}
             </Link>
