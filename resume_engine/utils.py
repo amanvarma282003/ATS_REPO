@@ -1,7 +1,8 @@
 import os
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from recruiters.models import JobDescription
+from knowledge_graph.competency_classifier import normalize_competencies
 
 _TEMPLATE_CACHE: Optional[str] = None
 
@@ -83,14 +84,44 @@ def load_resume_template() -> str:
     return _TEMPLATE_CACHE
 
 
+def _coerce_competency_entries(entries: Any) -> List[Dict[str, Any]]:
+    if not isinstance(entries, list):
+        return []
+    normalized: List[Dict[str, Any]] = []
+    for entry in entries:
+        if isinstance(entry, dict):
+            normalized.append(dict(entry))
+        elif isinstance(entry, str):
+            normalized.append({'name': entry, 'description': ''})
+    return normalized
+
+
 def build_job_context(job: JobDescription) -> Dict[str, Any]:
     """Return structured metadata for a job description to feed downstream services."""
     competencies = job.competencies or {}
+
+    required_comps = _coerce_competency_entries(competencies.get('required_competencies'))
+    optional_comps = _coerce_competency_entries(competencies.get('optional_competencies'))
+
+    required_skills = job.required_skills if isinstance(job.required_skills, list) else []
+    optional_skills = job.optional_skills if isinstance(job.optional_skills, list) else []
+
+    if not required_comps and required_skills:
+        required_comps = [{'name': skill, 'description': ''} for skill in required_skills]
+
+    if not optional_comps and optional_skills:
+        optional_comps = [{'name': skill, 'description': ''} for skill in optional_skills]
+
+    enriched_required = normalize_competencies(required_comps, importance='required')
+    enriched_optional = normalize_competencies(optional_comps, importance='optional')
+
     return {
         'id': job.id,
         'title': job.title,
         'company': job.company,
         'description': job.description,
-        'required_competencies': competencies.get('required_competencies', []),
-        'optional_competencies': competencies.get('optional_competencies', []),
+        'required_competencies': enriched_required,
+        'optional_competencies': enriched_optional,
+        'required_skills': required_skills,
+        'optional_skills': optional_skills,
     }
