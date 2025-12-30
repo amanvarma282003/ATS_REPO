@@ -209,5 +209,11 @@ PDFLATEX_PATH = os.getenv('PDFLATEX_PATH', '/usr/bin/pdflatex')
 LATEX_COMPILE_TIMEOUT = int(os.getenv('LATEX_COMPILE_TIMEOUT', 10))
 LATEX_SERVICE_URL = os.getenv('LATEX_SERVICE_URL', 'http://localhost:8006/convert')
 
+# Embedding Settings
+EMBEDDING_MODEL_NAME = os.getenv('EMBEDDING_MODEL_NAME', 'Qwen/Qwen3-Embedding-0.6B')
+EMBEDDING_CACHE_DIR = os.getenv('EMBEDDING_CACHE_DIR', os.path.join(BASE_DIR, 'models', 'embeddings'))
+EMBEDDING_QUERY_PROMPT = os.getenv('EMBEDDING_QUERY_PROMPT', 'query')
+
 # Create resume storage directory if it doesn't exist
 os.makedirs(RESUME_STORAGE_PATH, exist_ok=True)
+os.makedirs(EMBEDDING_CACHE_DIR, exist_ok=True)

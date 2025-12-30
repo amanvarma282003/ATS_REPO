@@ -47,6 +47,9 @@ Thumbs.db
 resumes/
 /tmp/resumes/
 
+# Models
+models/
+
 # Rough Notes
 rough_note.md
 work.md

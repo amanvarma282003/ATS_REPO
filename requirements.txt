@@ -8,6 +8,8 @@ networkx==3.2
 
 # LLM Integration
 google-genai
+sentence-transformers>=2.7.0
+transformers>=4.57.3
 
 # HTTP Client (for LaTeX service)
 requests==2.31.0
