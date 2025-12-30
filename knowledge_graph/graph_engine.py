@@ -2,7 +2,7 @@ import re
 
 import networkx as nx
 import numpy as np
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from candidates.models import CandidateProfile, Project, CandidateSkill
 from knowledge_graph.competency_classifier import normalize_competencies
 from knowledge_graph.embedding_service import get_embedding_service
@@ -666,12 +666,18 @@ class KnowledgeGraph:
             }
         }
     
-    def select_resume_content(self, jd_data: Dict[str, Any]) -> Dict[str, List[int]]:
+    def select_resume_content(
+        self,
+        jd_data: Dict[str, Any],
+        *,
+        matching_result: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Select projects, skills, experiences, and education to include in resume based on JD.
         Returns IDs/indices of selected content.
         """
-        matching_result = self.find_matching_paths(jd_data)
+        if matching_result is None:
+            matching_result = self.find_matching_paths(jd_data)
         
         # Extract all content IDs from matched paths
         selected_projects = set()
@@ -766,7 +772,11 @@ class KnowledgeGraph:
             'education_indices': list(selected_education),
             'publication_indices': list(selected_publications),
             'award_indices': list(selected_awards),
-            'match_strength': match_strength
+            'match_strength': match_strength,
+            'coverage_summary': matching_result.get('coverage_summary', {}),
+            'required_coverage': matching_result.get('required_coverage'),
+            'matched_competencies': matching_result.get('matched', []),
+            'missing_competencies': matching_result.get('missing', [])
         }
     
     def update_weights_from_feedback(self, feedback_data: Dict[str, Any]):

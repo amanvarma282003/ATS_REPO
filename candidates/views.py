@@ -23,7 +23,7 @@ from .serializers import (
     ToolSerializer,
     DomainSerializer
 )
-from recruiters.models import JobDescription, Application
+from recruiters.models import JobDescription, Application, ApplicationPreview
 from recruiters.serializers import ApplicationSerializer
 from resume_engine.models import GeneratedResume
 from knowledge_graph.graph_engine import KnowledgeGraph
@@ -94,6 +94,48 @@ def _to_decimal(value):
         return Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError):
         return None
+
+
+def _get_or_compute_preview(profile: CandidateProfile, job: JobDescription, *, force_refresh: bool = False):
+    candidate_timestamp = profile.updated_at
+    job_timestamp = job.updated_at
+
+    preview = ApplicationPreview.objects.filter(candidate=profile, job=job).first()
+
+    needs_refresh = (
+        force_refresh
+        or preview is None
+        or preview.candidate_updated_at < candidate_timestamp
+        or preview.job_updated_at < job_timestamp
+    )
+
+    if needs_refresh:
+        kg = KnowledgeGraph()
+        kg.build_candidate_graph(profile)
+        jd_data = build_job_context(job)
+        matching_result = kg.find_matching_paths(jd_data)
+        selected_content = kg.select_resume_content(jd_data, matching_result=matching_result)
+
+        preview, _ = ApplicationPreview.objects.update_or_create(
+            candidate=profile,
+            job=job,
+            defaults={
+                'match_strength': float(selected_content.get('match_strength') or 0.0),
+                'required_coverage': matching_result.get('required_coverage') or '',
+                'selected_projects': len(selected_content.get('project_ids', [])),
+                'selected_skills': len(selected_content.get('skill_ids', [])),
+                'selected_content': selected_content,
+                'coverage_summary': matching_result.get('coverage_summary', {}),
+                'candidate_updated_at': candidate_timestamp,
+                'job_updated_at': job_timestamp,
+            }
+        )
+        cached = False
+    else:
+        selected_content = preview.selected_content
+        cached = True
+
+    return preview, selected_content, cached
 
 
 
@@ -422,18 +464,30 @@ class CandidateApplicationPreviewView(APIView):
         if job.status != JobDescription.Status.ACTIVE:
             return Response({'error': 'Job is not accepting applications'}, status=status.HTTP_400_BAD_REQUEST)
 
-        kg = KnowledgeGraph()
-        kg.build_candidate_graph(profile)
-        jd_data = build_job_context(job)
-        selected_content = kg.select_resume_content(jd_data)
+        force_refresh_flag = request.data.get('force_refresh')
+        force_refresh = False
+        if isinstance(force_refresh_flag, bool):
+            force_refresh = force_refresh_flag
+        elif isinstance(force_refresh_flag, str):
+            force_refresh = force_refresh_flag.lower() in {'1', 'true', 'yes'}
+
+        preview, selected_content, cached = _get_or_compute_preview(
+            profile,
+            job,
+            force_refresh=force_refresh
+        )
 
         return Response({
             'job_id': job.id,
             'job_title': job.title,
-            'match_strength': selected_content.get('match_strength', 0) or 0,
-            'selected_projects': len(selected_content.get('project_ids', [])),
-            'selected_skills': len(selected_content.get('skill_ids', [])),
+            'match_strength': preview.match_strength,
+            'required_coverage': preview.required_coverage,
+            'selected_projects': preview.selected_projects,
+            'selected_skills': preview.selected_skills,
             'selected_content': selected_content,
+            'coverage_summary': preview.coverage_summary,
+            'cached': cached,
+            'computed_at': preview.computed_at.isoformat(),
         }, status=status.HTTP_200_OK)
 
 
@@ -460,10 +514,7 @@ class CandidateApplicationView(APIView):
         if job.status != JobDescription.Status.ACTIVE:
             return Response({'error': 'Job is not accepting applications'}, status=status.HTTP_400_BAD_REQUEST)
 
-        kg = KnowledgeGraph()
-        kg.build_candidate_graph(profile)
-        jd_data = build_job_context(job)
-        selected_content = kg.select_resume_content(jd_data)
+        preview, selected_content, _ = _get_or_compute_preview(profile, job)
         candidate_snapshot = build_candidate_snapshot(profile, selected_content)
 
         resume_identifier = str(uuid.uuid4())
@@ -514,5 +565,6 @@ class CandidateApplicationView(APIView):
             'has_pdf': bool(pdf_path),
             'match_explanation': match_explanation,
             'selected_content': selected_content,
+            'match_strength': preview.match_strength,
             'resume_source': 'existing' if resume_reference else 'snapshot',
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

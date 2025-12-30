@@ -112,6 +112,41 @@ class Application(models.Model):
         return f"{self.candidate.full_name} -> {self.job.title}"
 
 
+class ApplicationPreview(models.Model):
+    """Cached knowledge-graph preview for candidate/job pair."""
+
+    candidate = models.ForeignKey(
+        CandidateProfile,
+        on_delete=models.CASCADE,
+        related_name='match_previews'
+    )
+    job = models.ForeignKey(
+        JobDescription,
+        on_delete=models.CASCADE,
+        related_name='match_previews'
+    )
+    match_strength = models.FloatField(default=0.0)
+    required_coverage = models.CharField(max_length=32, blank=True)
+    selected_projects = models.PositiveIntegerField(default=0)
+    selected_skills = models.PositiveIntegerField(default=0)
+    selected_content = models.JSONField(default=dict)
+    coverage_summary = models.JSONField(default=dict, blank=True)
+    candidate_updated_at = models.DateTimeField()
+    job_updated_at = models.DateTimeField()
+    computed_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'application_previews'
+        unique_together = ['candidate', 'job']
+        ordering = ['-computed_at']
+        verbose_name = 'Application Preview'
+        verbose_name_plural = 'Application Previews'
+
+    def __str__(self):
+        return f"Preview {self.candidate.full_name} -> {self.job.title} ({self.match_strength:.2f})"
+
+
 class RecruiterFeedback(models.Model):
     """
     Feedback provided by recruiters on applications.
