@@ -61,7 +61,7 @@ Knowledge graphs link skills, projects, and competencies through typed relations
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.48\textwidth]{diagram/Bidirectional-Reasoning-Pipeline.png}
-\caption{Bidirectional reasoning pipeline connecting candidate and recruiter workflows through shared knowledge graph.}
+\caption{Bidirectional reasoning pipeline with shared knowledge graph.}
 \label{fig:architecture}
 \end{figure}
 
@@ -118,13 +118,13 @@ Match quality assessment employs three complementary metrics: required competenc
             title style={font=\small\bfseries}
         ]
         \addplot coordinates {
-            (Required Recall,0.61)
+            (Required Recall,0.659)
             (Optional Recall,0.48)
             (False Positive Rate,0.22)
             (Explanation Completeness,0.34)
         };
         \addplot coordinates {
-            (Required Recall,0.78)
+            (Required Recall,0.843)
             (Optional Recall,0.66)
             (False Positive Rate,0.11)
             (Explanation Completeness,0.61)
@@ -132,7 +132,7 @@ Match quality assessment employs three complementary metrics: required competenc
         \legend{Baseline Keyword Match,Weighted Graph Reasoner}
         \end{axis}
     \end{tikzpicture}
-    \caption{Competency coverage metrics comparing the legacy keyword baseline with the weighted graph reasoning engine. Lower is better for false-positive rate; higher is better for other metrics.}
+    \caption{Competency coverage: graph reasoner vs keyword baseline.}
     \label{fig:coverage-comparison}
 \end{figure}
 
@@ -177,7 +177,7 @@ LaTeX compilation failures trigger an automated retry workflow with progressivel
         \legend{Before Caching,After Caching}
         \end{axis}
     \end{tikzpicture}
-    \caption{Latency reductions achieved by caching for preview and submission workflows.}
+    \caption{Latency reduction through preview caching.}
     \label{fig:latency-caching}
 \end{figure}
 
@@ -202,16 +202,16 @@ LaTeX compilation failures trigger an automated retry workflow with progressivel
             title={Resume Generation Reliability},
             title style={font=\small\bfseries}
         ]
-        \addplot coordinates {(Generation Outcomes,0.924)};
-        \addplot coordinates {(Generation Outcomes,0.068)};
+        \addplot coordinates {(Generation Outcomes,0.947)};
+        \addplot coordinates {(Generation Outcomes,0.045)};
         \addplot coordinates {(Generation Outcomes,0.008)};
-        \legend{First Attempt Success,Success Within 5 Retries,Failures}
-        \node[font=\scriptsize\bfseries,anchor=west,xshift=15pt] at (axis cs:Generation Outcomes,0.462) {92.4\%};
-        \node[font=\scriptsize\bfseries,anchor=west,xshift=15pt] at (axis cs:Generation Outcomes,0.958) {6.8\%};
-        \node[font=\scriptsize\bfseries,anchor=west,xshift=15pt] at (axis cs:Generation Outcomes,1.05) {0.8\%};
+        \legend{First Attempt Success,Success Within Retry Budget,Failures}
+        \node[font=\scriptsize\bfseries,anchor=west,xshift=15pt] at (axis cs:Generation Outcomes,0.4735) {94.7\%};
+        \node[font=\scriptsize\bfseries,anchor=west,xshift=15pt] at (axis cs:Generation Outcomes,0.9695) {4.5\%};
+        \node[font=\scriptsize\bfseries,anchor=west,xshift=15pt] at (axis cs:Generation Outcomes,1.04) {0.8\%};
         \end{axis}
     \end{tikzpicture}
-    \caption{Distribution of resume generation outcomes with stacked success rates. Failures encompass the remaining 0.8\% of runs.}
+    \caption{Resume generation reliability with retry recovery.}
     \label{fig:resume-reliability}
 \end{figure}
 
@@ -220,7 +220,7 @@ LaTeX compilation failures trigger an automated retry workflow with progressivel
 We evaluate the system using a controlled dataset of 120 candidate-job pairs constructed from anonymized profiles and curated job descriptions spanning software engineering, data science, and product management roles. Each pair includes ground-truth labels indicating competency coverage expectations derived from manual expert review. Evaluation metrics include required competency recall measuring the fraction of mandatory skills correctly identified as met, optional competency precision assessing false-positive rates in optional skill matching, end-to-end latency spanning candidate selection to match result delivery, cache hit rates quantifying preview persistence effectiveness, and resume generation success rates tracking compilation outcomes within retry budgets. We compare the proposed knowledge graph matching algorithm against a baseline keyword overlap system and an embedding-based semantic similarity matcher to establish performance improvements.
 
 \subsection{Competency Coverage Quality}
-Table~\ref{tab:competency} presents competency coverage metrics across evaluation pairs. The knowledge graph matching algorithm achieves 84.3\% required competency recall, representing a 27.9\% improvement over keyword baseline (65.9\%) and 15.2\% improvement over embedding baseline (73.2\%). This gain reflects the algorithm's ability to recognize transferable skills and partial competency matches through graph traversal, whereas keyword systems reject candidates lacking exact terminology and embedding systems struggle with nuanced competency definitions. Optional competency precision reaches 78.6\%, maintaining low false-positive rates while capturing relevant non-required skills. The threshold-based partial credit mechanism contributes significantly; when disabled, recall drops to 76.1\%, confirming the value of accommodating near-matches rather than imposing binary presence checks.
+Table~\ref{tab:competency} presents competency coverage metrics across evaluation pairs. The knowledge graph matching algorithm achieves 84.3\% required competency recall, representing a 27.9\% improvement over keyword baseline (65.9\%) and 15.2\% improvement over embedding baseline (73.2\%). This gain reflects the algorithm's ability to recognize transferable skills and partial competency matches through graph traversal, whereas keyword systems reject candidates lacking exact terminology and embedding systems struggle with nuanced competency definitions. Optional competency precision reaches 78.6\%, maintaining low false-positive rates while capturing relevant non-required skills. Figure~\ref{fig:coverage-comparison} additionally reports optional recall (coverage breadth) and false-positive rates; lower is better for false-positive rate while higher is better for other metrics. The threshold-based partial credit mechanism contributes significantly; when disabled, recall drops to 76.1\%, confirming the value of accommodating near-matches rather than imposing binary presence checks.
 
 \begin{table}[htbp]
 \caption{Competency Coverage Performance}
