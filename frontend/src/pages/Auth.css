@@ -95,30 +95,9 @@
   cursor: pointer;
 }
 
-.btn-primary {
-  background: var(--accent-teal);
-  color: #04111f;
-  border: none;
-  padding: 0.9rem 1.5rem;
-  border-radius: 999px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+.auth-card .btn-primary {
   margin-top: 0.75rem;
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 15px 30px rgba(55, 241, 196, 0.4);
-}
-
-.btn-primary:disabled {
-  background: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.5);
-  cursor: not-allowed;
-  transform: none;
+  width: 100%;
 }
 
 .error-message {
