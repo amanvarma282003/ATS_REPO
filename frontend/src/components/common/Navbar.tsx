@@ -23,9 +23,9 @@ const Navbar: React.FC = () => {
       ? recruiterLinks
       : [];
 
-  const primaryAction = user?.role === 'RECRUITER'
-    ? { to: '/recruiter/post-job', label: 'Post a Job' }
-    : { to: '/candidate/generate-resume', label: 'Generate Resume' };
+  const primaryAction = user?.role === 'CANDIDATE'
+    ? { to: '/candidate/generate-resume', label: 'Generate Resume' }
+    : null;
 
   const secondaryAction = user?.role === 'CANDIDATE'
     ? { to: '/candidate/jobs', label: 'Browse Roles' }
@@ -61,9 +61,11 @@ const Navbar: React.FC = () => {
                 {secondaryAction.label}
               </Link>
             )}
-            <Link to={primaryAction.to} className="btn btn--primary nav-btn">
-              {primaryAction.label}
-            </Link>
+            {primaryAction && (
+              <Link to={primaryAction.to} className="btn btn--primary nav-btn">
+                {primaryAction.label}
+              </Link>
+            )}
             <div className="user-chip">
               <span className="user-avatar">{userInitial}</span>
               <div className="user-meta">
