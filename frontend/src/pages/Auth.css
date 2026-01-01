@@ -1,31 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --auth-bg: #020617;
+  --card-bg: rgba(8, 20, 41, 0.85);
+  --card-border: rgba(255, 255, 255, 0.15);
+  --text-primary: #ecf2ff;
+  --text-muted: rgba(226, 236, 255, 0.7);
+  --accent-teal: #37f1c4;
+  --accent-sky: #7edbff;
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --input-focus: #37f1c4;
+}
+
 .auth-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #ecf0f1;
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  background: radial-gradient(circle at 30% 20%, rgba(6, 182, 212, 0.4), transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(255, 138, 166, 0.3), transparent 55%),
+    linear-gradient(135deg, #01040f, #04122c 50%, #031b2f 100%);
   padding: 2rem;
+  color: var(--text-primary);
 }
 
 .auth-card {
-  background: #fff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background: var(--card-bg);
+  padding: 2.5rem;
+  border-radius: 24px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(18px);
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
 }
 
 .auth-card h2 {
-  margin: 0 0 1.5rem 0;
-  color: #2c3e50;
+  margin: 0 0 1.75rem 0;
+  color: var(--text-primary);
   text-align: center;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .form-group {
@@ -34,75 +58,104 @@
 }
 
 .form-group label {
-  margin-bottom: 0.5rem;
-  color: #34495e;
+  margin-bottom: 0.6rem;
+  color: var(--text-muted);
   font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
-  padding: 0.75rem;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
+  padding: 0.85rem 1rem;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 12px;
   font-size: 1rem;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--text-primary);
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: rgba(226, 236, 255, 0.4);
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #3498db;
+  border-color: var(--input-focus);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-group select {
+  cursor: pointer;
 }
 
 .btn-primary {
-  background-color: #3498db;
-  color: #fff;
+  background: var(--accent-teal);
+  color: #04111f;
   border: none;
-  padding: 0.75rem;
-  border-radius: 4px;
+  padding: 0.9rem 1.5rem;
+  border-radius: 999px;
   font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s;
-  margin-top: 0.5rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  margin-top: 0.75rem;
+  font-family: 'Space Grotesk', sans-serif;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(55, 241, 196, 0.4);
 }
 
 .btn-primary:disabled {
-  background-color: #95a5a6;
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.5);
   cursor: not-allowed;
+  transform: none;
 }
 
 .error-message {
-  background-color: #e74c3c;
-  color: #fff;
-  padding: 0.75rem;
-  border-radius: 4px;
+  background: rgba(255, 73, 121, 0.15);
+  border: 1px solid rgba(255, 73, 121, 0.4);
+  color: #ff97ad;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
   margin-bottom: 1rem;
+  font-size: 0.9rem;
 }
 
 .success-message {
-  background-color: #27ae60;
-  color: #fff;
-  padding: 0.75rem;
-  border-radius: 4px;
+  background: rgba(55, 241, 196, 0.15);
+  border: 1px solid rgba(55, 241, 196, 0.4);
+  color: #37f1c4;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
   margin-bottom: 1rem;
+  font-size: 0.9rem;
 }
 
 .auth-link {
   text-align: center;
-  margin-top: 1rem;
-  color: #7f8c8d;
+  margin-top: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
 .auth-link a {
-  color: #3498db;
+  color: var(--accent-sky);
   text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
 }
 
 .auth-link a:hover {
+  color: var(--accent-teal);
   text-decoration: underline;
 }
