@@ -483,7 +483,7 @@ const ProfilePage: React.FC = () => {
         <button
           onClick={handleSaveProfile}
           disabled={loading}
-          className="btn-primary save-all-btn"
+          className="btn btn-primary save-all-btn"
         >
           {loading ? 'Saving...' : 'Save All Changes'}
         </button>
@@ -697,7 +697,7 @@ const ProfilePage: React.FC = () => {
                     </div>
                   </div>
                   <div className="form-actions">
-                    <button onClick={handleAddLink} className="btn-primary">
+                    <button onClick={handleAddLink} className="btn btn-primary">
                       {editingLinkIndex !== null ? 'Update' : 'Add'} Link
                     </button>
                     {editingLinkIndex !== null && (
@@ -706,7 +706,7 @@ const ProfilePage: React.FC = () => {
                           setEditingLinkIndex(null);
                           setLinkForm({ label: '', url: '', description: '' });
                         }}
-                        className="btn-secondary"
+                        className="btn btn-secondary-light"
                       >
                         Cancel
                       </button>
@@ -828,7 +828,7 @@ const ProfilePage: React.FC = () => {
                       setEditingEduIndex(null);
                       setEduForm({ degree: '', institution: '', start_year: '', end_year: '', cgpa: '' });
                     }}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     style={{ marginLeft: '10px' }}
                   >
                     Cancel
@@ -934,7 +934,7 @@ const ProfilePage: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleAddResponsibility}
-                      className="btn-secondary"
+                      className="btn btn-secondary-light"
                     >
                       Add
                     </button>
@@ -966,7 +966,7 @@ const ProfilePage: React.FC = () => {
                       setEditingExpIndex(null);
                       setExpForm({ company: '', role: '', start_date: '', end_date: '', responsibilities: [] });
                     }}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     style={{ marginLeft: '10px' }}
                   >
                     Cancel
@@ -1235,7 +1235,7 @@ const ProfilePage: React.FC = () => {
                         setLoading(false);
                       }
                     }}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     disabled={loading}
                   >
                     Create Skill
@@ -1338,7 +1338,7 @@ const ProfilePage: React.FC = () => {
                       setEditingPubIndex(null);
                       setPubForm({ title: '', venue: '', date: '', doi: '', description: '' });
                     }}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     style={{ marginLeft: '10px' }}
                   >
                     Cancel
@@ -1433,7 +1433,7 @@ const ProfilePage: React.FC = () => {
                       setEditingAwardIndex(null);
                       setAwardForm({ title: '', organization: '', level: '', date: '' });
                     }}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     style={{ marginLeft: '10px' }}
                   >
                     Cancel
@@ -1526,7 +1526,7 @@ const ProfilePage: React.FC = () => {
                       setEditingExtraIndex(null);
                       setExtraForm({ role: '', organization: '', location: '', description: '' });
                     }}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     style={{ marginLeft: '10px' }}
                   >
                     Cancel
@@ -1641,7 +1641,7 @@ const ProfilePage: React.FC = () => {
                       setEditingPatentIndex(null);
                       setPatentForm({ title: '', patent_number: '', filing_date: '', grant_date: '', description: '', inventors: '' });
                     }}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     style={{ marginLeft: '10px' }}
                   >
                     Cancel

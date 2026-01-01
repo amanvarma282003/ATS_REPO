@@ -162,7 +162,7 @@ const GenerateResume: React.FC = () => {
           
           <button
             onClick={() => handleDownload(result.resume_id, result.display_label)}
-            className="btn-primary"
+            className="btn btn-primary"
           >
             Download PDF
           </button>
@@ -173,7 +173,7 @@ const GenerateResume: React.FC = () => {
         <div className="history-header">
           <h2>Resume History</h2>
           <button
-            className="btn-secondary"
+            className="btn btn-secondary-light"
             onClick={() => loadHistory()}
             disabled={historyLoading}
           >
@@ -195,7 +195,7 @@ const GenerateResume: React.FC = () => {
                   <p>Version {record.version} · {new Date(record.created_at).toLocaleString()}</p>
                 </div>
                 <button
-                  className="btn-primary"
+                  className="btn btn-primary"
                   onClick={() => handleDownload(record.resume_id, record.display_label)}
                 >
                   Download PDF

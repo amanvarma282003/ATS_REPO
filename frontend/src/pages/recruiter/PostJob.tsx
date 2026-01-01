@@ -127,7 +127,7 @@ const PostJob: React.FC = () => {
             <button
               type="button"
               onClick={handleGenerateCompetencies}
-              className="btn-secondary"
+              className="btn btn-secondary-light"
               disabled={generatingCompetencies || !description.trim()}
               style={{ whiteSpace: 'nowrap' }}
             >
@@ -143,14 +143,14 @@ const PostJob: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/recruiter/dashboard')}
-            className="btn-secondary"
+            className="btn btn-secondary-light"
             disabled={loading}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="btn-primary"
+            className="btn btn-primary"
             disabled={loading}
           >
             {loading ? 'Posting...' : 'Post Job'}

@@ -293,10 +293,10 @@ const BrowseJobs: React.FC = () => {
           {modalError && <div className="modal-error">{modalError}</div>}
 
           <div className="modal-actions">
-            <button className="btn-secondary" onClick={closeApplyModal} disabled={submittingApplication}>
+            <button className="btn btn-secondary-light" onClick={closeApplyModal} disabled={submittingApplication}>
               Cancel
             </button>
-            <button className="btn-primary" onClick={handleSubmitApplication} disabled={submittingApplication}>
+            <button className="btn btn-primary" onClick={handleSubmitApplication} disabled={submittingApplication}>
               {submittingApplication ? 'Submitting...' : 'Submit Application'}
             </button>
           </div>

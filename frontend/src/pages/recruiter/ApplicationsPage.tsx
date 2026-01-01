@@ -136,13 +136,13 @@ const ApplicationsPage: React.FC = () => {
               <div className="app-actions">
                 <button
                   onClick={() => handleViewDetails(app.id)}
-                  className="btn-secondary"
+                  className="btn btn-secondary-light"
                 >
                   View Details
                 </button>
                 <button
                   onClick={() => handleDownloadResume(app)}
-                  className="btn-secondary"
+                  className="btn btn-secondary-light"
                   disabled={downloadingId === app.id}
                 >
                   {downloadingId === app.id ? 'Preparing PDF...' : 'View Resume PDF'}
@@ -150,7 +150,7 @@ const ApplicationsPage: React.FC = () => {
                 {app.status === 'PENDING' && (
                   <button
                     onClick={() => handleOpenFeedback(app.id)}
-                    className="btn-primary"
+                    className="btn btn-primary"
                   >
                     Submit Feedback
                   </button>
@@ -196,7 +196,7 @@ const ApplicationsPage: React.FC = () => {
                 </div>
               )}
             </div>
-            <button onClick={() => setSelectedApp(null)} className="btn-primary">
+            <button onClick={() => setSelectedApp(null)} className="btn btn-primary">
               Close
             </button>
           </div>
@@ -232,14 +232,14 @@ const ApplicationsPage: React.FC = () => {
               <div className="form-actions">
                 <button
                   onClick={() => setShowFeedback(false)}
-                  className="btn-secondary"
+                  className="btn btn-secondary-light"
                   disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitFeedback}
-                  className="btn-primary"
+                  className="btn btn-primary"
                   disabled={submitting}
                 >
                   {submitting ? 'Submitting...' : 'Submit'}

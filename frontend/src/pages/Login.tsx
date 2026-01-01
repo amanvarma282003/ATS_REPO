@@ -59,7 +59,7 @@ const Login: React.FC = () => {
               placeholder="Enter your password"
             />
           </div>
-          <button type="submit" className="btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>

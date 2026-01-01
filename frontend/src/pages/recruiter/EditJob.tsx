@@ -185,7 +185,7 @@ const EditJob: React.FC = () => {
             <button
               type="button"
               onClick={handleGenerateCompetencies}
-              className="btn-secondary"
+              className="btn btn-secondary-light"
               disabled={generatingCompetencies || !description.trim()}
               style={{ whiteSpace: 'nowrap' }}
             >
@@ -223,14 +223,14 @@ const EditJob: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/recruiter/dashboard')}
-            className="btn-secondary"
+            className="btn btn-secondary-light"
             disabled={saving || deleting}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="btn-primary"
+            className="btn btn-primary"
             disabled={saving || deleting}
           >
             {saving ? 'Saving...' : 'Save Changes'}

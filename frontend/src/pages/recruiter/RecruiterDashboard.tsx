@@ -48,7 +48,7 @@ const RecruiterDashboard: React.FC = () => {
     <div className="recruiter-container">
       <div className="recruiter-header">
         <h1>Recruiter Dashboard</h1>
-        <Link to="/recruiter/post-job" className="btn-primary">
+        <Link to="/recruiter/post-job" className="btn btn-primary">
           Post New Job
         </Link>
       </div>
@@ -98,15 +98,15 @@ const RecruiterDashboard: React.FC = () => {
                 </div>
 
                 <div className="job-actions">
-                  <Link to={`/recruiter/applications/${job.id}`} className="btn-secondary">
+                  <Link to={`/recruiter/applications/${job.id}`} className="btn btn-secondary-light">
                     View Applications
                   </Link>
-                  <Link to={`/recruiter/edit-job/${job.id}`} className="btn-secondary">
+                  <Link to={`/recruiter/edit-job/${job.id}`} className="btn btn-secondary-light">
                     Edit Job
                   </Link>
                   <button
                     onClick={() => toggleJobStatus(job.id, job.status)}
-                    className="btn-secondary"
+                    className="btn btn-secondary-light"
                     disabled={updatingJobId === job.id}
                   >
                     {updatingJobId === job.id ? 'Updating...' : (job.status === 'ACTIVE' ? 'Close Job' : 'Reopen Job')}

@@ -31,8 +31,8 @@ const HomePage: React.FC = () => {
         <h1>ATS + Resume Intelligence Platform</h1>
         <p>Bidirectional feedback loop for candidates and recruiters</p>
         <div className="home-actions">
-          <Link to="/login" className="btn-primary">Login</Link>
-          <Link to="/register" className="btn-secondary">Register</Link>
+          <Link to="/login" className="btn btn-primary">Login</Link>
+          <Link to="/register" className="btn btn-secondary">Register</Link>
         </div>
       </div>
     </div>

@@ -122,7 +122,7 @@ const Register: React.FC = () => {
               <option value="RECRUITER">Recruiter</option>
             </select>
           </div>
-          <button type="submit" className="btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
