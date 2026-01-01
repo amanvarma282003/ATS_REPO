@@ -1,0 +1,36 @@
+flowchart LR
+    subgraph Ingestion["Profile & JD Ingestion"]
+        A[Candidate Profile Records]
+        B[Resume Upload Parser]
+        C[Job Description Normalizer]
+        A -->|structured fields| D[Profile Store]
+        B -->|validated JSON| D
+        C -->|competency graph| E[Job Context Store]
+    end
+
+    subgraph Reasoning["Knowledge-Graph Reasoning"]
+        D -->|evidence nodes| F[Graph Builder]
+        E -->|JD competencies| F
+        F --> G[Weighted Matching Engine]
+        G --> H{Cache Valid?}
+    end
+
+    subgraph ResumePipeline["Resume&nbsp;Generation&nbsp;Pipeline"]
+        G --> I[Selected Content Bundle]
+        I --> J[LaTeX Filler]
+        J --> K[PDF Compiler]
+    end
+
+    subgraph PreviewCache["Preview Cache"]
+        H -->|hit| L[Cached Preview Response]
+        H -->|miss| M[Recompute Preview]
+        M -->|store| L
+        L --> N[Preview Clients]
+    end
+
+    subgraph ApplicationStore["Application Evidence Store"]
+        K --> O[Resume Artifact Storage]
+        I --> P[Match Explanation Snapshot]
+        L --> P
+        P --> Q[Application Submission Ready]
+    end

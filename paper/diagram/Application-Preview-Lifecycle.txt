@@ -1,0 +1,29 @@
+@startuml
+start
+:Receive preview request;
+:Lookup candidate/job cache key;
+
+while (Need recompute?) is (yes)
+  if (Cached entry exists?) then (yes)
+    if (Stale timestamps?) then (yes)
+      :Mark cache stale;
+    else (no)
+      :Return cached preview payload;
+      stop
+    endif
+  endif
+
+  partition "Recompute Path" {
+    :Build candidate graph snapshot;
+    :Assemble job competency context;
+    :Execute weighted matching;
+    :Select resume content bundle;
+    :Persist preview entry with coverage metadata;
+  }
+
+  break
+endwhile
+
+:Respond with fresh preview;
+stop
+@enduml
