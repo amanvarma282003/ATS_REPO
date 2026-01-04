@@ -7,92 +7,74 @@ A bidirectional ATS + Resume Intelligence Platform that uses Knowledge Graph rea
 ## Architecture
 
 - **Backend**: Django + Django REST Framework
+- **Database**: SQLite (development)
 - **Knowledge Graph**: NetworkX
-- **LLM**: Google Gemini
-- **Resume Generation**: LaTeX → PDF
-- **Frontend**: React (separate repository)
+- **LLM**: Google Gemini (2.5 Flash with fallback cascade)
+- **Resume Generation**: LaTeX → PDF (Dockerized service)
+- **Frontend**: React + TypeScript
 
 ## Setup Instructions
 
 ### Prerequisites
 
 - Python 3.10+
-- PostgreSQL
-- pdflatex (TeX Live)
-- Node.js (for frontend)
+- Docker (for LaTeX service)
+- Node.js 16+ (for frontend)
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/A-Akhil/ATS_Proj.git
    cd ATS_Major
    ```
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Linux/Mac
-   ```
-
-3. **Install dependencies**
+2. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Install PostgreSQL (Arch Linux)**
-   ```bash
-   sudo pacman -Syu postgresql
-   sudo -u postgres initdb -D /var/lib/postgres/data
-   sudo systemctl start postgresql
-   sudo systemctl enable postgresql
-   ```
-
-5. **Create database**
-   ```bash
-   sudo -u postgres createdb ats_platform
-   sudo -u postgres psql
-   # In psql:
-   CREATE USER ats_user WITH PASSWORD 'secure_password';
-   GRANT ALL PRIVILEGES ON DATABASE ats_platform TO ats_user;
-   \q
-   ```
-
-6. **Install pdflatex (Arch Linux)**
-   ```bash
-   sudo pacman -Syu texlive-core texlive-bin texlive-latexextra
-   ```
-
-7. **Configure environment variables**
+3. **Configure environment variables**
    ```bash
    cp .env.example .env
-   # Edit .env and add your Gemini API key and other settings
+   # Edit .env and add your Gemini API key
    ```
 
-8. **Build and start LaTeX service (Docker)**
+4. **Build and start LaTeX service (Docker)**
    ```bash
    cd latex-to-pdf
    docker build -t latex-service .
    docker run -d --name latex-service --restart unless-stopped -p 8006:8006 -v "$(pwd)/../resumes:/app/resumes" latex-service
    cd ..
    ```
-   The service will auto-start on Docker daemon restart.
+   The Docker container will auto-start on system reboot.
 
-9. **Run migrations**
+5. **Run database migrations**
    ```bash
-   python manage.py makemigrations
    python manage.py migrate
    ```
 
-10. **Create superuser**
-    ```bash
-    python manage.py createsuperuser
-    ```
+6. **Create superuser (optional)**
+   ```bash
+   python manage.py createsuperuser
+   ```
 
-11. **Run development server**
-    ```bash
-    python manage.py runserver
-    ```
+7. **Start Django backend**
+   ```bash
+   python manage.py runserver
+   ```
+
+8. **Start React frontend (in separate terminal)**
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
+
+The application will be available at:
+- Backend API: http://localhost:8000
+- Frontend: http://localhost:3000
+- LaTeX Service: http://localhost:8006
 
 ## Project Structure
 
@@ -102,13 +84,15 @@ ATS_Major/
 ├── candidates/         # Candidate profiles, projects, skills
 ├── recruiters/         # Job postings, applications, feedback
 ├── knowledge_graph/    # NetworkX graph construction and reasoning
-├── resume_engine/      # LaTeX template management and PDF generation
-├── llm_service/        # Gemini API integration and prompt management
+├── resume_engine/      # Resume generation and LaTeX management
+├── llm_service/        # Gemini API integration and fallback logic
+├── latex-to-pdf/       # Dockerized LaTeX compilation service
+├── frontend/           # React + TypeScript UI
 ├── ats_backend/        # Django project settings
 ├── manage.py
 ├── requirements.txt
+├── db.sqlite3          # SQLite database (not committed)
 ├── .env.example
-├── work.md             # Project specification
 └── rough_note.md       # Technical analysis and design decisions
 ```
 
@@ -153,22 +137,32 @@ ATS_Major/
 
 ## Development Workflow
 
-1. Read `rough_note.md` for complete technical analysis
-2. Follow phase-based development plan in rough_note.md
-3. Test each component independently
-4. Integrate and run end-to-end tests
+1. Read `rough_note.md` for complete technical analysis and implementation details
+2. Backend runs on port 8000, frontend on 3000, LaTeX service on 8006
+3. SQLite database auto-created on first migration
+4. Docker container for LaTeX service handles all PDF generation
+
+## Technical Highlights
+
+- **Multi-model LLM cascade**: Automatic fallback from Gemini 2.5 Flash → 3 Flash → 2.5 Flash Lite → Gemma 3
+- **Quota management**: Per-model daily limits with automatic rotation
+- **Auto-restart**: LaTeX Docker container configured with `unless-stopped` policy
+- **Resume history**: Full versioning with smart label generation
+- **Knowledge graph reasoning**: Evidence-based candidate-job matching
 
 ## Security Notes
 
 - LaTeX input validation to prevent injection attacks
 - LLM prompt separation (system vs user content)
-- JWT-based authentication
+- JWT-based authentication with refresh tokens
 - Role-based access control
+- API keys stored in .env (never committed)
 
 ## Documentation
 
-- `work.md` - Complete project specification
-- `rough_note.md` - In-depth technical analysis and decision log
+- `rough_note.md` - Complete technical analysis, architecture decisions, and implementation log
+- `BACKEND_STATUS.md` - Backend API reference and completion status
+- `API_REFERENCE.md` - Detailed API documentation
 
 ## License
 
