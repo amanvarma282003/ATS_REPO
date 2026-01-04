@@ -46,22 +46,27 @@ const GenerateResume: React.FC = () => {
     setResult(null);
     setLabelPreview(null);
 
-    const labelPromise = resumeService
-      .previewLabel(payload)
-      .then((label) => {
-        setLabelPreview(label);
-        return label;
-      })
-      .catch((err) => {
-        console.error('Label preview failed', err);
-        return null;
-      });
-
     try {
-      const response = await resumeService.generateResume(payload);
-      setResult(response);
-      await labelPromise;
-      await loadHistory();
+      // Call both APIs concurrently
+      const [labelResult, resumeResult] = await Promise.allSettled([
+        resumeService.previewLabel(payload),
+        resumeService.generateResume(payload),
+      ]);
+
+      // Handle label result
+      if (labelResult.status === 'fulfilled') {
+        setLabelPreview(labelResult.value);
+      } else {
+        console.error('Label preview failed', labelResult.reason);
+      }
+
+      // Handle resume result
+      if (resumeResult.status === 'fulfilled') {
+        setResult(resumeResult.value);
+        await loadHistory();
+      } else {
+        throw resumeResult.reason;
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to generate resume');
     } finally {
