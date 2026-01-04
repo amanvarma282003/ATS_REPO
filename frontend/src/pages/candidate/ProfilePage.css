@@ -198,24 +198,42 @@
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
   padding: 0.75rem;
   border: 1px solid #bdc3c7;
   border-radius: 4px;
   font-size: 1rem;
   font-family: inherit;
+  background: #ffffff;
+  color: #2c3e50;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #95a5a6;
+  opacity: 1;
+}
+
+.form-group select option {
+  background: #ffffff;
+  color: #2c3e50;
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  background: #ffffff;
+  color: #2c3e50;
 }
 
 .form-group input:disabled {
   background: #ecf0f1;
   cursor: not-allowed;
+  color: #7f8c8d;
 }
 
 .full-width-textarea {
@@ -226,12 +244,21 @@
   font-family: inherit;
   font-size: 1rem;
   resize: vertical;
+  background: #ffffff;
+  color: #2c3e50;
+}
+
+.full-width-textarea::placeholder {
+  color: #95a5a6;
+  opacity: 1;
 }
 
 .full-width-textarea:focus {
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  background: #ffffff;
+  color: #2c3e50;
 }
 
 .help-text {
