@@ -29,6 +29,11 @@ const BrowseJobs: React.FC = () => {
   const [modalError, setModalError] = useState('');
   const [applications, setApplications] = useState<Application[]>([]);
   const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
+  const [withdrawConfirm, setWithdrawConfirm] = useState<{ show: boolean; appId: number | null; jobTitle: string }>({
+    show: false,
+    appId: null,
+    jobTitle: '',
+  });
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -150,14 +155,11 @@ const BrowseJobs: React.FC = () => {
   };
 
   const handleWithdraw = async (applicationId: number) => {
-    if (!window.confirm('Are you sure you want to withdraw this application?')) {
-      return;
-    }
-
     setWithdrawingId(applicationId);
     try {
       await candidateService.withdrawApplication(applicationId);
       setBanner({ type: 'success', text: 'Application withdrawn successfully' });
+      setWithdrawConfirm({ show: false, appId: null, jobTitle: '' });
       await loadJobs();
     } catch (err: any) {
       const errorMsg = err?.response?.data?.error || 'Failed to withdraw application';
@@ -165,6 +167,14 @@ const BrowseJobs: React.FC = () => {
     } finally {
       setWithdrawingId(null);
     }
+  };
+
+  const openWithdrawConfirm = (appId: number, jobTitle: string) => {
+    setWithdrawConfirm({ show: true, appId, jobTitle });
+  };
+
+  const closeWithdrawConfirm = () => {
+    setWithdrawConfirm({ show: false, appId: null, jobTitle: '' });
   };
 
   const renderResumeLabel = (record: GeneratedResumeRecord) => {
@@ -404,7 +414,7 @@ const BrowseJobs: React.FC = () => {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     {isPending && existingApp ? (
                       <button
-                        onClick={() => handleWithdraw(existingApp.id)}
+                        onClick={() => openWithdrawConfirm(existingApp.id, job.title)}
                         className="btn-withdraw"
                         disabled={withdrawingId === existingApp.id}
                       >
@@ -432,6 +442,32 @@ const BrowseJobs: React.FC = () => {
       )}
 
       {renderModal()}
+      
+      {withdrawConfirm.show && (
+        <div className="apply-modal-overlay" onClick={closeWithdrawConfirm}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Withdraw Application</h3>
+            <p>Are you sure you want to withdraw your application for <strong>{withdrawConfirm.jobTitle}</strong>?</p>
+            <p className="confirm-warning">This action cannot be undone. You can reapply later if needed.</p>
+            <div className="confirm-actions">
+              <button 
+                className="btn btn-secondary-light" 
+                onClick={closeWithdrawConfirm}
+                disabled={Boolean(withdrawingId)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-danger" 
+                onClick={() => withdrawConfirm.appId && handleWithdraw(withdrawConfirm.appId)}
+                disabled={Boolean(withdrawingId)}
+              >
+                {withdrawingId ? 'Withdrawing...' : 'Yes, Withdraw'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
