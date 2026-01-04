@@ -158,7 +158,12 @@ class LLMService:
             "optional_skills": ["skill3", "skill4"]
         }
         """
-        prompt = f"""
+        max_parse_retries = 3
+        last_error = None
+        
+        for attempt in range(max_parse_retries):
+            try:
+                prompt = f"""
 You are parsing a job description into structured competencies.
 
 ### SYSTEM INSTRUCTIONS ###
@@ -197,43 +202,52 @@ Do NOT invent information not present in the job description.
 
 Output JSON only:
 """
-        
-        response_text = self._call_llm_with_retry(prompt)
-        clean_response = response_text.strip()
-        if clean_response.startswith('```'):
-            clean_response = re.sub(r'^```(?:json)?', '', clean_response, flags=re.IGNORECASE).strip()
-        if clean_response.endswith('```'):
-            clean_response = clean_response[:clean_response.rfind('```')].strip()
-        
-        # Extract JSON from response
-        try:
-            # Try to find JSON in response
-            start = clean_response.find('{')
-            end = clean_response.rfind('}') + 1
-            if start != -1 and end > start:
-                json_text = clean_response[start:end]
-                parsed_data = json.loads(json_text, strict=False)
                 
-                # Validate required fields
-                if not isinstance(parsed_data.get('required_competencies'), list):
-                    parsed_data['required_competencies'] = []
-                if not isinstance(parsed_data.get('optional_competencies'), list):
-                    parsed_data['optional_competencies'] = []
-                if not isinstance(parsed_data.get('required_skills'), list):
-                    parsed_data['required_skills'] = []
-                if not isinstance(parsed_data.get('optional_skills'), list):
-                    parsed_data['optional_skills'] = []
-                if not isinstance(parsed_data.get('company'), str):
-                    parsed_data['company'] = ''
+                response_text = self._call_llm_with_retry(prompt)
+                clean_response = response_text.strip()
+                if clean_response.startswith('```'):
+                    clean_response = re.sub(r'^```(?:json)?', '', clean_response, flags=re.IGNORECASE).strip()
+                if clean_response.endswith('```'):
+                    clean_response = clean_response[:clean_response.rfind('```')].strip()
                 
-                return parsed_data
-            else:
-                raise ValueError("No valid JSON found in response")
-        except json.JSONDecodeError as e:
-            preview = clean_response[:500]
-            raise Exception(
-                f"Failed to parse LLM response as JSON: {str(e)}\nResponse snippet: {preview}"
-            )
+                # Extract JSON from response
+                # Try to find JSON in response
+                start = clean_response.find('{')
+                end = clean_response.rfind('}') + 1
+                if start != -1 and end > start:
+                    json_text = clean_response[start:end]
+                    parsed_data = json.loads(json_text, strict=False)
+                    
+                    # Validate required fields
+                    if not isinstance(parsed_data.get('required_competencies'), list):
+                        parsed_data['required_competencies'] = []
+                    if not isinstance(parsed_data.get('optional_competencies'), list):
+                        parsed_data['optional_competencies'] = []
+                    if not isinstance(parsed_data.get('required_skills'), list):
+                        parsed_data['required_skills'] = []
+                    if not isinstance(parsed_data.get('optional_skills'), list):
+                        parsed_data['optional_skills'] = []
+                    if not isinstance(parsed_data.get('company'), str):
+                        parsed_data['company'] = ''
+                    
+                    return parsed_data
+                else:
+                    raise ValueError("No valid JSON found in response")
+                    
+            except (json.JSONDecodeError, ValueError) as e:
+                last_error = e
+                preview = clean_response[:500] if 'clean_response' in locals() else 'N/A'
+                logger.warning(
+                    f"Parse attempt {attempt + 1}/{max_parse_retries} failed: {str(e)}\nResponse snippet: {preview}"
+                )
+                if attempt < max_parse_retries - 1:
+                    time.sleep(1)
+                    continue
+        
+        # All retries failed
+        raise Exception(
+            f"Failed to parse LLM response as JSON after {max_parse_retries} attempts: {str(last_error)}"
+        )
     
     def parse_resume(self, resume_text: str) -> Dict[str, Any]:
         """
