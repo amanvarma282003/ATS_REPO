@@ -6,6 +6,7 @@ import {
   JobDescription,
   GeneratedResumeRecord,
   CandidateApplicationPreview,
+  Application,
 } from '../../types';
 import './BrowseJobs.css';
 
@@ -26,15 +27,21 @@ const BrowseJobs: React.FC = () => {
   const [selectedResumeId, setSelectedResumeId] = useState<string>(SNAPSHOT_OPTION);
   const [submittingApplication, setSubmittingApplication] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const jobList = await recruiterService.getJobs();
+      const [jobList, appList] = await Promise.all([
+        recruiterService.getJobs(),
+        candidateService.getMyApplications(),
+      ]);
       const activeJobs = (jobList || []).filter((job) => job.status !== 'CLOSED');
       setJobs(activeJobs);
+      setApplications(appList || []);
     } catch (err: any) {
       const message = err?.response?.data?.error || 'Failed to load jobs. Please try again.';
       setError(message);
@@ -133,11 +140,30 @@ const BrowseJobs: React.FC = () => {
       const response = await candidateService.applyToJob(payload);
       setBanner({ type: 'success', text: response.message || 'Application submitted successfully!' });
       closeApplyModal();
+      await loadJobs(); // Reload to update application status
     } catch (err: any) {
       const errorMsg = err?.response?.data?.error || 'Failed to submit application. Please try again.';
       setModalError(errorMsg);
     } finally {
       setSubmittingApplication(false);
+    }
+  };
+
+  const handleWithdraw = async (applicationId: number) => {
+    if (!window.confirm('Are you sure you want to withdraw this application?')) {
+      return;
+    }
+
+    setWithdrawingId(applicationId);
+    try {
+      await candidateService.withdrawApplication(applicationId);
+      setBanner({ type: 'success', text: 'Application withdrawn successfully' });
+      await loadJobs();
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || 'Failed to withdraw application';
+      setBanner({ type: 'error', text: errorMsg });
+    } finally {
+      setWithdrawingId(null);
     }
   };
 
@@ -326,48 +352,82 @@ const BrowseJobs: React.FC = () => {
         </div>
       ) : (
         <div className="jobs-list">
-          {jobs.map((job) => (
-            <div key={job.id} className="job-listing-card">
-              <div className="job-listing-header">
-                <div>
-                  <h2>{job.title}</h2>
-                  <p className="job-company">{job.company}</p>
+          {jobs.map((job) => {
+            const existingApp = applications.find((app) => app.job === job.id);
+            const status = existingApp?.status;
+            const isPending = status === 'PENDING';
+            const canApply = !status || status === 'REJECTED' || status === 'HIRED';
+
+            return (
+              <div key={job.id} className="job-listing-card">
+                <div className="job-listing-header">
+                  <div>
+                    <h2>{job.title}</h2>
+                    <p className="job-company">{job.company}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {status && (
+                      <span className={`job-badge job-badge--${status.toLowerCase()}`}>
+                        {status}
+                      </span>
+                    )}
+                    <span className="job-badge active">Active</span>
+                  </div>
                 </div>
-                <span className="job-badge active">Active</span>
-              </div>
 
-              <div className="job-description">
-                <p>
-                  {job.description.length > 300
-                    ? `${job.description.substring(0, 300)}...`
-                    : job.description}
-                </p>
-              </div>
+                <div className="job-description">
+                  <p>
+                    {job.description.length > 300
+                      ? `${job.description.substring(0, 300)}...`
+                      : job.description}
+                  </p>
+                </div>
 
-              <div className="job-competencies">
-                <strong>Required Skills:</strong>
-                <div className="competencies-tags">
-                  {(job.required_competencies || []).slice(0, 8).map((comp, idx) => (
-                    <span key={idx} className="competency-tag">
-                      {comp}
-                    </span>
-                  ))}
-                  {(job.required_competencies || []).length > 8 && (
-                    <span className="competency-tag more">
-                      +{(job.required_competencies || []).length - 8} more
-                    </span>
-                  )}
+                <div className="job-competencies">
+                  <strong>Required Skills:</strong>
+                  <div className="competencies-tags">
+                    {(job.required_competencies || []).slice(0, 8).map((comp, idx) => (
+                      <span key={idx} className="competency-tag">
+                        {comp}
+                      </span>
+                    ))}
+                    {(job.required_competencies || []).length > 8 && (
+                      <span className="competency-tag more">
+                        +{(job.required_competencies || []).length - 8} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="job-footer">
+                  <span className="job-posted">Posted: {new Date(job.posted_at).toLocaleDateString()}</span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {isPending && existingApp ? (
+                      <button
+                        onClick={() => handleWithdraw(existingApp.id)}
+                        className="btn-withdraw"
+                        disabled={withdrawingId === existingApp.id}
+                      >
+                        {withdrawingId === existingApp.id ? 'Withdrawing...' : 'Withdraw'}
+                      </button>
+                    ) : canApply ? (
+                      <button
+                        onClick={() => openApplyModal(job)}
+                        className="btn-apply"
+                        disabled={Boolean(applyModalJob)}
+                      >
+                        {status ? 'Apply Again' : 'Apply Now'}
+                      </button>
+                    ) : (
+                      <button className="btn-apply" disabled>
+                        Applied
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <div className="job-footer">
-                <span className="job-posted">Posted: {new Date(job.posted_at).toLocaleDateString()}</span>
-                <button onClick={() => openApplyModal(job)} className="btn-apply" disabled={Boolean(applyModalJob)}>
-                  Apply Now
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

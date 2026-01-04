@@ -86,4 +86,9 @@ export const candidateService = {
     const response = await api.get('/candidate/applications/');
     return response.data;
   },
+
+  withdrawApplication: async (applicationId: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/candidate/applications/${applicationId}/`);
+    return response.data;
+  },
 };

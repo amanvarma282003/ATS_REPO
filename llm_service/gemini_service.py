@@ -145,9 +145,71 @@ class LLMService:
             f"{str(last_error) if last_error else 'unknown error'}"
         )
     
+    def _call_llm_with_gemma_only(self, prompt: str) -> str:
+        """
+        Call LLM using only Gemma model to save Gemini quota.
+        Used for simpler tasks like JD parsing.
+        """
+        gemma_model = "gemma-3-27b-it"
+        last_error: Optional[Exception] = None
+        
+        for key_index, api_key in enumerate(self.api_keys):
+            client = self.clients[api_key]
+            attempt = 0
+            
+            while attempt < self.max_retries:
+                if not self._claim_usage_slot(gemma_model, api_key):
+                    last_error = Exception(
+                        f"Daily quota reached for {gemma_model} using API key #{key_index + 1}"
+                    )
+                    logger.info(
+                        "Daily quota reached for model %s (API key #%s). Trying next API key...",
+                        gemma_model,
+                        key_index + 1,
+                    )
+                    break
+                
+                try:
+                    response = client.models.generate_content(
+                        model=gemma_model,
+                        contents=prompt,
+                    )
+                    if key_index > 0:
+                        logger.info(
+                            "JD parsing succeeded using %s (API key #%s)",
+                            gemma_model,
+                            key_index + 1,
+                        )
+                    return response.text
+                except Exception as exc:
+                    last_error = exc
+                    quota_error = self._is_quota_error(exc)
+                    attempt += 1
+                    
+                    if not quota_error:
+                        if attempt < self.max_retries:
+                            time.sleep(2 ** (attempt - 1))
+                            continue
+                        raise Exception(
+                            f"Gemma call failed after {self.max_retries} attempts "
+                            f"(API key #{key_index + 1}): {str(exc)}"
+                        )
+                    
+                    logger.warning(
+                        "Gemma quota exhausted for API key #%s. Trying next API key...",
+                        key_index + 1,
+                    )
+                    break
+        
+        raise Exception(
+            f"JD parsing failed after exhausting all API keys with {gemma_model}: "
+            f"{str(last_error) if last_error else 'unknown error'}"
+        )
+    
     def parse_job_description(self, jd_text: str) -> Dict[str, Any]:
         """
         Parse job description into structured competencies.
+        Uses only Gemma model to save Gemini RPD quota.
         
         Returns:
         {
@@ -203,7 +265,8 @@ Do NOT invent information not present in the job description.
 Output JSON only:
 """
                 
-                response_text = self._call_llm_with_retry(prompt)
+                # Use only Gemma model (last in cascade) to save Gemini quota
+                response_text = self._call_llm_with_gemma_only(prompt)
                 clean_response = response_text.strip()
                 if clean_response.startswith('```'):
                     clean_response = re.sub(r'^```(?:json)?', '', clean_response, flags=re.IGNORECASE).strip()
@@ -491,6 +554,7 @@ IMPORTANT: Return ONLY the complete LaTeX document with candidate data filled in
     def generate_match_explanation(self, match_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate human-readable explanation of candidate-job match.
+        Uses only Gemma model to save Gemini RPD quota.
         
         Returns:
         {
@@ -527,7 +591,7 @@ Based on the matched and missing competencies, provide:
 Output JSON only:
 """
         
-        response_text = self._call_llm_with_retry(prompt)
+        response_text = self._call_llm_with_gemma_only(prompt)
         
         try:
             start = response_text.find('{')

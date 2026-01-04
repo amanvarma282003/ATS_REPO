@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { recruiterService } from '../../services/recruiter.service';
 import { Application } from '../../types';
@@ -19,11 +19,7 @@ const ApplicationsPage: React.FC = () => {
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadApplications();
-  }, [jobId]);
-
-  const loadApplications = async () => {
+  const loadApplications = useCallback(async () => {
     if (!jobId) return;
     
     try {
@@ -34,7 +30,11 @@ const ApplicationsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId]);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
 
   const handleViewDetails = async (appId: number) => {
     try {
@@ -65,7 +65,6 @@ const ApplicationsPage: React.FC = () => {
         action,
         reason,
       });
-      alert('Feedback submitted successfully');
       setShowFeedback(false);
       setFeedbackApp(null);
       await loadApplications();

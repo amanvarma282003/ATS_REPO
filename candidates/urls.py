@@ -34,5 +34,6 @@ urlpatterns = [
          name='profile-upload-resume'),
     path('applications/preview/', CandidateApplicationPreviewView.as_view(), name='applications-preview'),
     path('applications/', CandidateApplicationView.as_view(), name='applications'),
+    path('applications/<int:application_id>/', CandidateApplicationView.as_view(), name='applications-detail'),
     path('', include(router.urls)),
 ]

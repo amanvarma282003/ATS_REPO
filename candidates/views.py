@@ -500,6 +500,31 @@ class CandidateApplicationView(APIView):
         applications = Application.objects.filter(candidate=profile).order_by('-applied_at')
         serializer = ApplicationSerializer(applications, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def delete(self, request, application_id=None):
+        """Allow candidates to withdraw pending applications."""
+        profile = get_object_or_404(CandidateProfile, user=request.user)
+        
+        if not application_id:
+            return Response({'error': 'application_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        application = get_object_or_404(
+            Application,
+            id=application_id,
+            candidate=profile
+        )
+        
+        if application.status != Application.Status.PENDING:
+            return Response(
+                {'error': 'Only pending applications can be withdrawn'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        application.delete()
+        return Response(
+            {'message': 'Application withdrawn successfully'},
+            status=status.HTTP_200_OK
+        )
 
     def post(self, request):
         profile = get_object_or_404(CandidateProfile, user=request.user)
@@ -531,24 +556,21 @@ class CandidateApplicationView(APIView):
             resume_identifier = resume_reference.resume_id
             pdf_path = resume_reference.pdf_path
 
-        try:
-            match_explanation = llm_service.generate_match_explanation(selected_content)
-        except Exception as exc:
-            logger.warning(f"Match explanation generation failed: {exc}")
-            match_explanation = {
-                'decision': 'REVIEW',
-                'confidence': 0.0,
-                'explanation': 'Match explanation pending due to temporary error.',
-                'strengths': [],
-                'gaps': [],
-                'error': str(exc),
-            }
+        # Create application immediately with pending match explanation
+        match_explanation = {
+            'decision': 'REVIEW',
+            'confidence': 0.0,
+            'explanation': 'Match analysis in progress...',
+            'strengths': [],
+            'gaps': [],
+        }
 
         application_defaults = {
             'resume_id': resume_identifier,
             'resume_version': candidate_snapshot,
             'generated_pdf_path': pdf_path,
             'match_explanation': match_explanation,
+            'status': Application.Status.PENDING,  # Reset to PENDING on reapplication
         }
 
         application, created = Application.objects.update_or_create(
@@ -556,6 +578,34 @@ class CandidateApplicationView(APIView):
             job=job,
             defaults=application_defaults
         )
+
+        # Generate match explanation asynchronously in background
+        import threading
+        def generate_explanation_async():
+            try:
+                explanation = llm_service.generate_match_explanation(selected_content)
+                # Update application with generated explanation
+                Application.objects.filter(id=application.id).update(
+                    match_explanation=explanation
+                )
+                logger.info(f"Match explanation generated for application {application.id}")
+            except Exception as exc:
+                logger.warning(f"Match explanation generation failed for application {application.id}: {exc}")
+                fallback_explanation = {
+                    'decision': 'REVIEW',
+                    'confidence': 0.0,
+                    'explanation': 'Match explanation generation encountered an error.',
+                    'strengths': [],
+                    'gaps': [],
+                    'error': str(exc),
+                }
+                Application.objects.filter(id=application.id).update(
+                    match_explanation=fallback_explanation
+                )
+        
+        thread = threading.Thread(target=generate_explanation_async)
+        thread.daemon = True
+        thread.start()
 
         return Response({
             'message': 'Application submitted successfully' if created else 'Application updated successfully',

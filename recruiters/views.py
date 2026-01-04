@@ -163,25 +163,14 @@ class RecruiterFeedbackViewSet(viewsets.ModelViewSet):
             application.status = new_status
             application.save()
         
-        # Update knowledge graph weights based on feedback
-        try:
-            logger.info(f"Updating graph weights for feedback: {feedback.action} on application {application.id}")
-            kg = KnowledgeGraph()
-            kg.build_candidate_graph(application.candidate)
-            
-            # Convert feedback action to signal
-            feedback_signal = {
-                'action': feedback.action,
-                'application_id': application.id,
-                'job_id': application.job.id,
-                'reason': feedback.reason
-            }
-            
-            kg.update_weights_from_feedback(feedback_signal)
-            logger.info("Graph weights updated successfully")
-        except Exception as e:
-            logger.error(f"Failed to update graph weights: {e}")
-            # Don't fail the request if graph update fails
+        # TODO: Knowledge graph weight updates
+        # Currently disabled because:
+        # 1. Rebuilding entire graph takes 30-50s (computes embeddings for all nodes)
+        # 2. update_weights_from_feedback() expects 'used_competencies' field
+        # 3. Feedback signal doesn't provide 'used_competencies'
+        # 4. Weight update loop does nothing without that data
+        # Future: Cache built graphs or extract competencies from match explanation
+        logger.info(f"Feedback recorded: {feedback.action} on application {application.id}")
 
 
 class RecruiterApplicationDownloadView(APIView):
