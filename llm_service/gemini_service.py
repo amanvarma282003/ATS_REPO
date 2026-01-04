@@ -80,13 +80,14 @@ class LLMService:
         response_schema: Optional[Dict] = None,
         config: Optional[types.GenerateContentConfig] = None,
     ) -> str:
-        """Call LLM with cascading models and API keys, reacting to quota limits."""
+        """Call LLM with cascading models and API keys, reacting to quota limits.
+        Tries all API keys for each model before moving to next model."""
 
         last_error: Optional[Exception] = None
 
-        for key_index, api_key in enumerate(self.api_keys):
-            client = self.clients[api_key]
-            for model_index, model_name in enumerate(self.model_cascade):
+        for model_index, model_name in enumerate(self.model_cascade):
+            for key_index, api_key in enumerate(self.api_keys):
+                client = self.clients[api_key]
                 attempt = 0
                 while attempt < self.max_retries:
                     if not self._claim_usage_slot(model_name, api_key):
@@ -128,16 +129,16 @@ class LLMService:
                             )
 
                         logger.warning(
-                            "LLM quota exhausted for model %s (API key #%s). Moving to next model if available.",
+                            "LLM quota exhausted for model %s (API key #%s). Moving to next API key if available.",
                             model_name,
                             key_index + 1,
                         )
-                        break  # move to next model in cascade
+                        break  # move to next API key for same model
 
-            if key_index < len(self.api_keys) - 1:
+            if model_index < len(self.model_cascade) - 1:
                 logger.info(
-                    "All configured models quota-limited for API key #%s. Trying next API key...",
-                    key_index + 1,
+                    "All API keys quota-limited for model %s. Trying next model...",
+                    model_name,
                 )
 
         raise Exception(
