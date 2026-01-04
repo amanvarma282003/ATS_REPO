@@ -206,6 +206,53 @@ class LLMService:
             f"{str(last_error) if last_error else 'unknown error'}"
         )
     
+    def parse_jd_for_label(self, jd_text: str) -> Dict[str, str]:
+        """
+        Lightweight parser that only extracts title and company for resume labeling.
+        Uses Gemma model only. Much faster than full parse_job_description.
+        
+        Returns:
+        {
+            "title": "Job Title",
+            "company": "Company Name"
+        }
+        """
+        prompt = f"""
+Extract ONLY the job title and company name from this job description.
+
+### JOB DESCRIPTION ###
+{jd_text}
+
+### OUTPUT FORMAT ###
+{{
+    "title": "extracted job title",
+    "company": "company name or empty string if not found"
+}}
+
+Output JSON only:
+"""
+        
+        try:
+            response_text = self._call_llm_with_gemma_only(prompt)
+            
+            # Extract JSON
+            start = response_text.find('{')
+            end = response_text.rfind('}') + 1
+            if start != -1 and end > start:
+                json_text = response_text[start:end]
+                parsed = json.loads(json_text)
+                return {
+                    'title': parsed.get('title', 'Custom Role'),
+                    'company': parsed.get('company', '')
+                }
+        except Exception as e:
+            logger.warning(f"Fast label parse failed: {e}")
+        
+        # Fallback: try to extract title from first line
+        lines = jd_text.strip().split('\n')
+        title = lines[0][:100] if lines else 'Custom Role'
+        return {'title': title, 'company': ''}
+
     def parse_job_description(self, jd_text: str) -> Dict[str, Any]:
         """
         Parse job description into structured competencies.
