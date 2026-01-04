@@ -69,18 +69,27 @@ A bidirectional ATS + Resume Intelligence Platform that uses Knowledge Graph rea
    # Edit .env and add your Gemini API key and other settings
    ```
 
-8. **Run migrations**
+8. **Build and start LaTeX service (Docker)**
+   ```bash
+   cd latex-to-pdf
+   docker build -t latex-service .
+   docker run -d --name latex-service --restart unless-stopped -p 8006:8006 -v "$(pwd)/../resumes:/app/resumes" latex-service
+   cd ..
+   ```
+   The service will auto-start on Docker daemon restart.
+
+9. **Run migrations**
    ```bash
    python manage.py makemigrations
    python manage.py migrate
    ```
 
-9. **Create superuser**
-   ```bash
-   python manage.py createsuperuser
-   ```
+10. **Create superuser**
+    ```bash
+    python manage.py createsuperuser
+    ```
 
-10. **Run development server**
+11. **Run development server**
     ```bash
     python manage.py runserver
     ```
