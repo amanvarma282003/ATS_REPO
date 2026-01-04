@@ -36,6 +36,20 @@ def _resolve_job_context(job_id, jd_text):
     raise ValueError('Either job_id or jd_text is required')
 
 
+def _resolve_job_context_for_label(job_id, jd_text):
+    """Fast version that only extracts title/company for label preview."""
+    if job_id:
+        job = get_object_or_404(JobDescription, id=job_id)
+        return {
+            'title': job.title,
+            'company': job.company
+        }
+    if jd_text:
+        # Use fast parser that only gets title/company
+        return llm_service.parse_jd_for_label(jd_text)
+    raise ValueError('Either job_id or jd_text is required')
+
+
 def _build_label_metadata(candidate, jd_data):
     role = (jd_data.get('title') or 'Custom Role').strip()
     company = (jd_data.get('company') or 'Custom Company').strip()
@@ -291,7 +305,7 @@ class ResumeLabelPreviewView(APIView):
         jd_text = request.data.get('jd_text')
 
         try:
-            _, jd_data, _ = _resolve_job_context(job_id, jd_text)
+            jd_data = _resolve_job_context_for_label(job_id, jd_text)
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
