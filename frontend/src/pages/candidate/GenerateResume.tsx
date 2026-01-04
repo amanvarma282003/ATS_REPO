@@ -46,27 +46,20 @@ const GenerateResume: React.FC = () => {
     setResult(null);
     setLabelPreview(null);
 
+    // Start label preview (fast) - update UI immediately when ready
+    resumeService.previewLabel(payload)
+      .then((label) => {
+        setLabelPreview(label);
+      })
+      .catch((err) => {
+        console.error('Label preview failed', err);
+      });
+
     try {
-      // Call both APIs concurrently
-      const [labelResult, resumeResult] = await Promise.allSettled([
-        resumeService.previewLabel(payload),
-        resumeService.generateResume(payload),
-      ]);
-
-      // Handle label result
-      if (labelResult.status === 'fulfilled') {
-        setLabelPreview(labelResult.value);
-      } else {
-        console.error('Label preview failed', labelResult.reason);
-      }
-
-      // Handle resume result
-      if (resumeResult.status === 'fulfilled') {
-        setResult(resumeResult.value);
-        await loadHistory();
-      } else {
-        throw resumeResult.reason;
-      }
+      // Start resume generation (slow) - this runs in parallel with label
+      const resumeResult = await resumeService.generateResume(payload);
+      setResult(resumeResult);
+      await loadHistory();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to generate resume');
     } finally {
