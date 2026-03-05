@@ -14,6 +14,7 @@ import RecruiterDashboard from './pages/recruiter/RecruiterDashboard';
 import PostJob from './pages/recruiter/PostJob';
 import EditJob from './pages/recruiter/EditJob';
 import ApplicationsPage from './pages/recruiter/ApplicationsPage';
+import Resources from './pages/candidate/Resources';
 import './App.css';
 
 const HomePage: React.FC = () => {
@@ -81,6 +82,14 @@ function App() {
                 element={
                   <PrivateRoute allowedRole="CANDIDATE">
                     <BrowseJobs />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/candidate/resources"
+                element={
+                  <PrivateRoute allowedRole="CANDIDATE">
+                    <Resources />
                   </PrivateRoute>
                 }
               />

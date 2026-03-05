@@ -9,6 +9,7 @@ const Navbar: React.FC = () => {
   const candidateLinks = [
     { to: '/candidate/dashboard', label: 'Dashboard' },
     { to: '/candidate/jobs', label: 'Browse Jobs' },
+    { to: '/candidate/resources', label: 'Resources' },
     { to: '/candidate/profile', label: 'Profile' },
   ];
 

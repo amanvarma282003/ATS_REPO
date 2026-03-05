@@ -258,6 +258,24 @@ class ProjectTool(models.Model):
         return f"{self.project.title} - {self.tool.name}"
 
 
+class LearningResource(models.Model):
+    title = models.CharField(max_length=500)
+    url = models.URLField(max_length=2000)
+    category = models.CharField(max_length=300)
+    source = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'learning_resources'
+        ordering = ['category', 'title']
+        unique_together = [['url', 'source']]
+        verbose_name = 'Learning Resource'
+        verbose_name_plural = 'Learning Resources'
+
+    def __str__(self):
+        return self.title
+
+
 class Domain(models.Model):
     """
     Broader knowledge domains (e.g., Machine Learning, Web Development).

@@ -8,7 +8,9 @@ from .views import (
     ToolViewSet,
     DomainViewSet,
     CandidateApplicationView,
-    CandidateApplicationPreviewView
+    CandidateApplicationPreviewView,
+    ResourcesView,
+    ForYouResourcesView,
 )
 
 app_name = 'candidates'
@@ -35,5 +37,7 @@ urlpatterns = [
     path('applications/preview/', CandidateApplicationPreviewView.as_view(), name='applications-preview'),
     path('applications/', CandidateApplicationView.as_view(), name='applications'),
     path('applications/<int:application_id>/', CandidateApplicationView.as_view(), name='applications-detail'),
+    path('resources/for-you/', ForYouResourcesView.as_view(), name='resources-for-you'),
+    path('resources/', ResourcesView.as_view(), name='resources'),
     path('', include(router.urls)),
 ]

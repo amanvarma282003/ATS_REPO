@@ -13,7 +13,8 @@ from .models import (
     Skill,
     CandidateSkill,
     Tool,
-    Domain
+    Domain,
+    LearningResource
 )
 from .serializers import (
     CandidateProfileSerializer,
@@ -618,3 +619,115 @@ class CandidateApplicationView(APIView):
             'match_strength': preview.match_strength,
             'resume_source': 'existing' if resume_reference else 'snapshot',
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class ResourcesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+        from .serializers import LearningResourceSerializer
+
+        qs = LearningResource.objects.all()
+
+        category = request.query_params.get('category')
+        source = request.query_params.get('source')
+        q = request.query_params.get('q')
+
+        if category:
+            qs = qs.filter(category=category)
+        if source:
+            qs = qs.filter(source=source)
+        if q:
+            qs = qs.filter(Q(title__icontains=q) | Q(category__icontains=q))
+
+        categories = list(LearningResource.objects.values_list('category', flat=True).distinct().order_by('category'))
+        sources = list(LearningResource.objects.values_list('source', flat=True).distinct().order_by('source'))
+
+        total_count = qs.count()
+        try:
+            page = max(1, int(request.query_params.get('page', 1)))
+            page_size = min(100, max(1, int(request.query_params.get('page_size', 20))))
+        except (ValueError, TypeError):
+            page = 1
+            page_size = 20
+
+        total_pages = max(1, (total_count + page_size - 1) // page_size)
+        start = (page - 1) * page_size
+        resources = qs[start:start + page_size]
+
+        return Response({
+            'categories': categories,
+            'sources': sources,
+            'total_count': total_count,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages,
+            'resources': LearningResourceSerializer(resources, many=True).data,
+        })
+
+
+class ForYouResourcesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+        from .serializers import LearningResourceSerializer
+        import re
+
+        NOISE = {
+            'experience', 'skills', 'knowledge', 'understanding', 'ability',
+            'proficiency', 'background', 'familiarity', 'exposure', 'years',
+            'strong', 'good', 'basic', 'advanced', 'excellent', 'required',
+            'preferred', 'plus', 'bonus', 'development', 'engineering',
+            'evidence', 'found', 'any', 'competencies', 'assessment',
+            'threshold', 'similarity', 'score', 'below', 'best', 'the',
+            'is', 'met', 'further', 'partially', 'requiring', 'improvement',
+            'adoption', 'design', 'path', 'platform', 'capability', 'sharing',
+            'collaboration', 'infrastructure', 'usability',
+        }
+
+        try:
+            profile = request.user.candidate_profile
+        except Exception:
+            return Response({'gaps': []})
+
+        from recruiters.models import Application
+        apps = Application.objects.filter(candidate=profile).order_by('-applied_at')[:10]
+        if not apps.exists():
+            return Response({'gaps': []})
+
+        # collect gap phrases then extract searchable keywords from each
+        gap_entries = []
+        seen_topics = set()
+
+        for app in apps:
+            raw_gaps = (app.match_explanation or {}).get('gaps', [])
+            for gap in raw_gaps:
+                gap = gap.strip()
+                if not gap or 'no evidence' in gap.lower():
+                    continue
+                # extract meaningful words (length > 3, not noise)
+                words = re.findall(r'[A-Za-z][A-Za-z0-9+#.]*', gap)
+                for w in words:
+                    lw = w.lower()
+                    if lw not in NOISE and len(lw) > 3 and lw not in seen_topics:
+                        seen_topics.add(lw)
+                        gap_entries.append((w, gap))
+                        break  # one keyword per gap phrase
+
+        if not gap_entries:
+            return Response({'gaps': []})
+
+        result = []
+        for keyword, label in gap_entries[:8]:
+            resources = LearningResource.objects.filter(
+                Q(title__icontains=keyword) | Q(category__icontains=keyword)
+            )[:6]
+            if resources.exists():
+                result.append({
+                    'topic': label,
+                    'resources': LearningResourceSerializer(resources, many=True).data,
+                })
+
+        return Response({'gaps': result})

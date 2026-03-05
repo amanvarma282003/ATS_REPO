@@ -6,7 +6,8 @@ from .models import (
     CandidateSkill,
     Tool,
     ProjectTool,
-    Domain
+    Domain,
+    LearningResource
 )
 
 
@@ -118,3 +119,9 @@ class DomainSerializer(serializers.ModelSerializer):
         model = Domain
         fields = ['id', 'name', 'parent_domain']
         read_only_fields = ['id']
+
+
+class LearningResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LearningResource
+        fields = ['id', 'title', 'url', 'category', 'source']

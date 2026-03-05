@@ -91,4 +91,30 @@ export const candidateService = {
     const response = await api.delete(`/candidate/applications/${applicationId}/`);
     return response.data;
   },
+
+  getLearningResources: async (params?: {
+    category?: string;
+    source?: string;
+    q?: string;
+    page?: number;
+    page_size?: number;
+  }): Promise<{
+    categories: string[];
+    sources: string[];
+    total_count: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+    resources: { id: number; title: string; url: string; category: string; source: string }[];
+  }> => {
+    const response = await api.get('/candidate/resources/', { params });
+    return response.data;
+  },
+
+  getForYouResources: async (): Promise<{
+    gaps: { topic: string; resources: { id: number; title: string; url: string; category: string; source: string }[] }[];
+  }> => {
+    const response = await api.get('/candidate/resources/for-you/');
+    return response.data;
+  },
 };
