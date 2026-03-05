@@ -15,6 +15,7 @@ import PostJob from './pages/recruiter/PostJob';
 import EditJob from './pages/recruiter/EditJob';
 import ApplicationsPage from './pages/recruiter/ApplicationsPage';
 import Resources from './pages/candidate/Resources';
+import ArchitectureDiagram from './pages/ArchitectureDiagram';
 import './App.css';
 
 const HomePage: React.FC = () => {
@@ -127,6 +128,9 @@ function App() {
                   </PrivateRoute>
                 }
               />
+
+              {/* Architecture diagram */}
+              <Route path="/architecture" element={<ArchitectureDiagram />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
