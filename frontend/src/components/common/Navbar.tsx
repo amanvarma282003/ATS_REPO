@@ -39,9 +39,9 @@ const Navbar: React.FC = () => {
     <header className="navbar">
       <div className="navbar-shell">
         <div className="brand-cluster">
-          <Link to="/" className="brand-mark" aria-label="ATS Intelligence home">
+          <Link to="/" className="brand-mark" aria-label="Hire Lens home">
             <span className="brand-glow" />
-            <span className="brand-text">ATS Intelligence</span>
+            <span className="brand-text">Hire Lens</span>
           </Link>
         </div>
 

@@ -30,9 +30,15 @@
   gap: 0.75rem;
   text-decoration: none;
   color: #f7fbff;
-  font-size: 1.15rem;
-  font-weight: 600;
+  font-size: 1.6rem;
+  font-weight: 700;
   letter-spacing: 0.05em;
+}
+
+.brand-text {
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .brand-glow {

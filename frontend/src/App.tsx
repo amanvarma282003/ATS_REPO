@@ -29,7 +29,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="home-container">
       <div className="home-hero">
-        <h1>ATS + Resume Intelligence Platform</h1>
+        <h1>Hire Lens</h1>
         <p>Bidirectional feedback loop for candidates and recruiters</p>
         <div className="home-actions">
           <Link to="/login" className="btn btn-primary">Login</Link>
