@@ -156,6 +156,8 @@ export interface Application {
   generated_pdf_path: string;
   status: 'PENDING' | 'SHORTLISTED' | 'REJECTED' | 'INTERVIEWED' | 'HIRED';
   match_explanation: MatchExplanation;
+  interview_questions: { category: string; question: string }[];
+  practice_questions: { category: string; question: string }[];
   applied_at: string;
   updated_at: string;
 }

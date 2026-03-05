@@ -180,3 +180,44 @@
   gap: 1rem;
   justify-content: flex-end;
 }
+
+.questions-generate-row {
+  margin-top: 1.5rem;
+}
+
+.questions-panel {
+  margin-bottom: 1.5rem;
+}
+
+.question-category {
+  margin-bottom: 1.25rem;
+}
+
+.question-category:last-child {
+  margin-bottom: 0;
+}
+
+.question-category h5 {
+  color: #2c3e50;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.5rem;
+  border-bottom: 1px solid #e0e6ed;
+  padding-bottom: 0.35rem;
+}
+
+.question-category ol {
+  margin: 0;
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.question-item {
+  color: #34495e;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}

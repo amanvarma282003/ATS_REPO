@@ -18,6 +18,9 @@ const ApplicationsPage: React.FC = () => {
   const [action, setAction] = useState<'SHORTLIST' | 'REJECT' | 'INTERVIEW' | 'HIRE'>('SHORTLIST');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [questionsLoading, setQuestionsLoading] = useState<number | null>(null);
+  const [questionsMap, setQuestionsMap] = useState<Record<number, { category: string; question: string }[]>>({});
+  const [questionsModalApp, setQuestionsModalApp] = useState<number | null>(null);
 
   const loadApplications = useCallback(async () => {
     if (!jobId) return;
@@ -96,6 +99,25 @@ const ApplicationsPage: React.FC = () => {
     }
   };
 
+  const handleGenerateQuestions = async (appId: number) => {
+    setQuestionsLoading(appId);
+    setError('');
+    try {
+      const data = await recruiterService.getInterviewQuestions(appId);
+      setQuestionsMap((prev) => ({ ...prev, [appId]: data.questions }));
+      setSelectedApp((prev) =>
+        prev && prev.id === appId
+          ? { ...prev, interview_questions: data.questions }
+          : prev
+      );
+      setQuestionsModalApp(appId);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to generate interview questions');
+    } finally {
+      setQuestionsLoading(null);
+    }
+  };
+
   if (loading) {
     return <div className="applications-container">Loading...</div>;
   }
@@ -146,6 +168,25 @@ const ApplicationsPage: React.FC = () => {
                 >
                   {downloadingId === app.id ? 'Preparing PDF...' : 'View Resume PDF'}
                 </button>
+                {app.match_explanation?.decision === 'SHORTLIST' && (
+                  <button
+                    onClick={() => {
+                      if (app.interview_questions?.length > 0 || questionsMap[app.id]?.length > 0) {
+                        setQuestionsModalApp(app.id);
+                      } else {
+                        handleGenerateQuestions(app.id);
+                      }
+                    }}
+                    className="btn btn-secondary-light"
+                    disabled={questionsLoading === app.id}
+                  >
+                    {questionsLoading === app.id
+                      ? 'Generating...'
+                      : (app.interview_questions?.length > 0 || questionsMap[app.id]?.length > 0)
+                        ? 'View Questions'
+                        : 'Generate Questions'}
+                  </button>
+                )}
                 {app.status === 'PENDING' && (
                   <button
                     onClick={() => handleOpenFeedback(app.id)}
@@ -194,6 +235,42 @@ const ApplicationsPage: React.FC = () => {
                   </ul>
                 </div>
               )}
+
+              {selectedApp.match_explanation?.decision === 'SHORTLIST' &&
+                !(selectedApp.interview_questions?.length > 0 || questionsMap[selectedApp.id]?.length > 0) && (
+                <div className="questions-generate-row">
+                  <button
+                    onClick={() => handleGenerateQuestions(selectedApp.id)}
+                    className="btn btn-secondary-light"
+                    disabled={questionsLoading === selectedApp.id}
+                  >
+                    {questionsLoading === selectedApp.id ? 'Generating...' : 'Generate Interview Questions'}
+                  </button>
+                </div>
+              )}
+
+              {(() => {
+                const qs = selectedApp.interview_questions?.length > 0
+                  ? selectedApp.interview_questions
+                  : questionsMap[selectedApp.id];
+                if (!qs || qs.length === 0) return null;
+                const categories = qs.reduce((acc: string[], q) => acc.includes(q.category) ? acc : [...acc, q.category], []);
+                return (
+                  <div className="questions-panel">
+                    <h4>Interview Questions</h4>
+                    {categories.map((cat) => (
+                      <div key={cat} className="question-category">
+                        <h5>{cat}</h5>
+                        <ol>
+                          {qs.filter((q) => q.category === cat).map((q, i) => (
+                            <li key={i} className="question-item">{q.question}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <button onClick={() => setSelectedApp(null)} className="btn btn-primary">
               Close
@@ -201,6 +278,37 @@ const ApplicationsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {questionsModalApp !== null && (() => {
+        const app = applications.find((a) => a.id === questionsModalApp);
+        const qs = (app?.interview_questions?.length ?? 0) > 0
+          ? app!.interview_questions
+          : questionsMap[questionsModalApp] ?? [];
+        const categories = qs.reduce((acc: string[], q) =>
+          acc.includes(q.category) ? acc : [...acc, q.category], []);
+        return (
+          <div className="modal-overlay" onClick={() => setQuestionsModalApp(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h2>Interview Questions</h2>
+              <div className="questions-panel">
+                {categories.map((cat) => (
+                  <div key={cat} className="question-category">
+                    <h5>{cat}</h5>
+                    <ol>
+                      {qs.filter((q) => q.category === cat).map((q, i) => (
+                        <li key={i} className="question-item">{q.question}</li>
+                      ))}
+                    </ol>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setQuestionsModalApp(null)} className="btn btn-primary">
+                Close
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {showFeedback && (
         <div className="modal-overlay" onClick={() => setShowFeedback(false)}>

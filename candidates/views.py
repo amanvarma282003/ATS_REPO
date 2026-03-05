@@ -515,9 +515,9 @@ class CandidateApplicationView(APIView):
             candidate=profile
         )
         
-        if application.status != Application.Status.PENDING:
+        if application.status not in (Application.Status.PENDING, Application.Status.SHORTLISTED):
             return Response(
-                {'error': 'Only pending applications can be withdrawn'},
+                {'error': 'Only pending or shortlisted applications can be withdrawn'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -731,3 +731,55 @@ class ForYouResourcesView(APIView):
                 })
 
         return Response({'gaps': result})
+
+
+class PracticeQuestionsView(APIView):
+    """
+    GET /candidate/applications/<application_id>/practice-questions/
+    Auto-generates (or returns cached) practice preparation prompts for
+    a shortlisted candidate. Only the owning candidate can access this.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, application_id):
+        import logging
+        logger = logging.getLogger(__name__)
+
+        from recruiters.models import Application
+
+        try:
+            application = Application.objects.get(
+                pk=application_id,
+                candidate__user=request.user,
+            )
+        except Application.DoesNotExist:
+            from rest_framework import status as drf_status
+            return Response({'error': 'Not found'}, status=drf_status.HTTP_404_NOT_FOUND)
+
+        decision = (application.match_explanation or {}).get('decision', '')
+        if decision != 'SHORTLIST':
+            from rest_framework import status as drf_status
+            return Response(
+                {'error': 'Practice questions are only available for shortlisted applications.'},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        if application.practice_questions:
+            return Response({'questions': application.practice_questions})
+
+        try:
+            from llm_service.gemini_service import llm_service
+            questions = llm_service.generate_practice_questions(
+                jd_text=application.job.description,
+                resume_version=application.resume_version or {},
+            )
+            application.practice_questions = questions
+            application.save(update_fields=['practice_questions'])
+            return Response({'questions': questions})
+        except Exception as exc:
+            logger.error(f'Practice question generation failed for application {application_id}: {exc}')
+            from rest_framework import status as drf_status
+            return Response(
+                {'error': f'Failed to generate questions: {str(exc)}'},
+                status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

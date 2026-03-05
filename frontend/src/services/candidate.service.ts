@@ -87,6 +87,11 @@ export const candidateService = {
     return response.data;
   },
 
+  getPracticeQuestions: async (applicationId: number): Promise<{ questions: { category: string; question: string }[] }> => {
+    const response = await api.get(`/candidate/applications/${applicationId}/practice-questions/`);
+    return response.data;
+  },
+
   withdrawApplication: async (applicationId: number): Promise<{ message: string }> => {
     const response = await api.delete(`/candidate/applications/${applicationId}/`);
     return response.data;

@@ -97,7 +97,17 @@ class Application(models.Model):
         default=dict,
         help_text="LLM-generated explanation of why candidate matched"
     )
-    
+    interview_questions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="LLM-generated interview questions for shortlisted candidates"
+    )
+    practice_questions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="LLM-generated practice questions for the candidate to prepare with"
+    )
+
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

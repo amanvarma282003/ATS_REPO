@@ -34,6 +34,9 @@ const BrowseJobs: React.FC = () => {
     appId: null,
     jobTitle: '',
   });
+  const [practiceQuestionsMap, setPracticeQuestionsMap] = useState<Record<number, { category: string; question: string }[]>>({});
+  const [practiceLoadingSet, setPracticeLoadingSet] = useState<Set<number>>(new Set());
+  const [prepModalAppId, setPrepModalAppId] = useState<number | null>(null);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -58,6 +61,45 @@ const BrowseJobs: React.FC = () => {
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
+
+  useEffect(() => {
+    if (applications.length === 0) return;
+    // Pre-fill from cached field
+    applications.forEach((a) => {
+      if ((a.practice_questions?.length ?? 0) > 0) {
+        setPracticeQuestionsMap((prev) =>
+          prev[a.id] ? prev : { ...prev, [a.id]: a.practice_questions }
+        );
+      }
+    });
+    const toFetch = applications.filter(
+      (a) =>
+        a.status === 'SHORTLISTED' &&
+        (a.practice_questions?.length ?? 0) === 0
+    );
+    if (toFetch.length === 0) return;
+    setPracticeLoadingSet((prev) => {
+      const next = new Set(prev);
+      toFetch.forEach((a) => next.add(a.id));
+      return next;
+    });
+    toFetch.forEach((app) => {
+      candidateService.getPracticeQuestions(app.id)
+        .then((data) => {
+          setPracticeQuestionsMap((prev) => ({ ...prev, [app.id]: data.questions }));
+        })
+        .catch((err) => {
+          console.error(`Practice questions failed for app ${app.id}:`, err?.response?.data || err?.message);
+        })
+        .finally(() => {
+          setPracticeLoadingSet((prev) => {
+            const next = new Set(prev);
+            next.delete(app.id);
+            return next;
+          });
+        });
+    });
+  }, [applications]);
 
   useEffect(() => {
     if (!applyModalJob) {
@@ -366,6 +408,7 @@ const BrowseJobs: React.FC = () => {
             const existingApp = applications.find((app) => app.job === job.id);
             const status = existingApp?.status;
             const isPending = status === 'PENDING';
+            const isWithdrawable = status === 'PENDING' || status === 'SHORTLISTED';
             const canApply = !status || status === 'REJECTED' || status === 'HIRED';
 
             return (
@@ -409,10 +452,16 @@ const BrowseJobs: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="job-footer">
-                  <span className="job-posted">Posted: {new Date(job.posted_at).toLocaleDateString()}</span>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {isPending && existingApp ? (
+                {status === 'SHORTLISTED' && existingApp && (
+                  <div className="job-footer">
+                    <span className="job-posted">Posted: {new Date(job.posted_at).toLocaleDateString()}</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => setPrepModalAppId(existingApp.id)}
+                        className="btn-prep"
+                      >
+                        {practiceLoadingSet.has(existingApp.id) ? 'Preparing...' : 'Interview Prep'}
+                      </button>
                       <button
                         onClick={() => openWithdrawConfirm(existingApp.id, job.title)}
                         className="btn-withdraw"
@@ -420,26 +469,86 @@ const BrowseJobs: React.FC = () => {
                       >
                         {withdrawingId === existingApp.id ? 'Withdrawing...' : 'Withdraw'}
                       </button>
-                    ) : canApply ? (
-                      <button
-                        onClick={() => openApplyModal(job)}
-                        className="btn-apply"
-                        disabled={Boolean(applyModalJob)}
-                      >
-                        {status ? 'Apply Again' : 'Apply Now'}
-                      </button>
-                    ) : (
-                      <button className="btn-apply" disabled>
-                        Applied
-                      </button>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {status !== 'SHORTLISTED' && (
+                  <div className="job-footer">
+                    <span className="job-posted">Posted: {new Date(job.posted_at).toLocaleDateString()}</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {isWithdrawable && existingApp ? (
+                        <button
+                          onClick={() => openWithdrawConfirm(existingApp.id, job.title)}
+                          className="btn-withdraw"
+                          disabled={withdrawingId === existingApp.id}
+                        >
+                          {withdrawingId === existingApp.id ? 'Withdrawing...' : 'Withdraw'}
+                        </button>
+                      ) : canApply ? (
+                        <button
+                          onClick={() => openApplyModal(job)}
+                          className="btn-apply"
+                          disabled={Boolean(applyModalJob)}
+                        >
+                          {status ? 'Apply Again' : 'Apply Now'}
+                        </button>
+                      ) : (
+                        <button className="btn-apply" disabled>
+                          Applied
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
+
+      {prepModalAppId !== null && (() => {
+        const app = applications.find((a) => a.id === prepModalAppId);
+        const qs = practiceQuestionsMap[prepModalAppId] ?? [];
+        const isLoadingPrep = practiceLoadingSet.has(prepModalAppId);
+        const categories = qs.reduce((acc: string[], q) =>
+          acc.includes(q.category) ? acc : [...acc, q.category], []);
+        return (
+          <div className="apply-modal-overlay" onClick={() => setPrepModalAppId(null)}>
+            <div className="prep-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="prep-modal-header">
+                <div>
+                  <span className="prep-modal-kicker">Interview Prep</span>
+                  <h3>{app?.job_title ?? 'Practice Questions'}</h3>
+                  {app?.job_company && <p className="prep-modal-company">{app.job_company}</p>}
+                </div>
+                <button className="prep-modal-close" onClick={() => setPrepModalAppId(null)}>&#x2715;</button>
+              </div>
+              {isLoadingPrep ? (
+                <div className="job-prep-loading">
+                  <span className="job-prep-spinner" />
+                  Making your practice questions...
+                </div>
+              ) : qs.length === 0 ? (
+                <p className="job-prep-empty">Could not load questions. Please refresh the page.</p>
+              ) : (
+                <div className="job-prep-questions">
+                  {categories.map((cat) => (
+                    <div key={cat} className="job-prep-category">
+                      <h5>{cat}</h5>
+                      <ol>
+                        {qs.filter((q) => q.category === cat).map((q, i) => (
+                          <li key={i}>{q.question}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {renderModal()}
       

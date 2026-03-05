@@ -43,8 +43,8 @@ class ApplicationSerializer(serializers.ModelSerializer):
         model = Application
         fields = ['id', 'candidate', 'candidate_info', 'job', 'job_title', 'job_company',
                   'resume_id', 'resume_version', 'generated_pdf_path', 'status',
-                  'match_explanation', 'applied_at', 'updated_at']
-        read_only_fields = ['id', 'resume_id', 'applied_at', 'updated_at']
+                  'match_explanation', 'interview_questions', 'practice_questions', 'applied_at', 'updated_at']
+        read_only_fields = ['id', 'resume_id', 'interview_questions', 'practice_questions', 'applied_at', 'updated_at']
 
 
 class RecruiterFeedbackSerializer(serializers.ModelSerializer):

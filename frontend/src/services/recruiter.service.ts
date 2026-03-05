@@ -62,4 +62,9 @@ export const recruiterService = {
     });
     return response.data;
   },
+
+  getInterviewQuestions: async (applicationId: number): Promise<{ questions: { category: string; question: string }[] }> => {
+    const response = await api.post(`/recruiter/applications/${applicationId}/interview-questions/`);
+    return response.data;
+  },
 };

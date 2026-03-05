@@ -4,7 +4,8 @@ from .views import (
     JobDescriptionViewSet,
     ApplicationViewSet,
     RecruiterFeedbackViewSet,
-    RecruiterApplicationDownloadView
+    RecruiterApplicationDownloadView,
+    InterviewQuestionsView,
 )
 
 app_name = 'recruiters'
@@ -19,4 +20,7 @@ urlpatterns = [
     path('applications/<int:pk>/download/',
          RecruiterApplicationDownloadView.as_view(),
          name='application-download'),
+    path('applications/<int:pk>/interview-questions/',
+         InterviewQuestionsView.as_view(),
+         name='application-interview-questions'),
 ]

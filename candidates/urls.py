@@ -11,6 +11,7 @@ from .views import (
     CandidateApplicationPreviewView,
     ResourcesView,
     ForYouResourcesView,
+    PracticeQuestionsView,
 )
 
 app_name = 'candidates'
@@ -34,6 +35,7 @@ urlpatterns = [
     path('profile/upload_resume/', 
          CandidateProfileViewSet.as_view({'post': 'upload_resume'}), 
          name='profile-upload-resume'),
+    path('applications/<int:application_id>/practice-questions/', PracticeQuestionsView.as_view(), name='practice-questions'),
     path('applications/preview/', CandidateApplicationPreviewView.as_view(), name='applications-preview'),
     path('applications/', CandidateApplicationView.as_view(), name='applications'),
     path('applications/<int:application_id>/', CandidateApplicationView.as_view(), name='applications-detail'),

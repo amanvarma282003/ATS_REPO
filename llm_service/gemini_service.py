@@ -652,6 +652,198 @@ Output JSON only:
         except json.JSONDecodeError as e:
             raise Exception(f"Failed to parse match explanation JSON: {str(e)}\nResponse: {response_text}")
 
+    def generate_interview_questions(
+        self,
+        jd_text: str,
+        resume_version: Dict[str, Any],
+    ) -> List[Dict[str, str]]:
+        """
+        Generate interview questions for a shortlisted candidate.
+        Uses only Gemma model. Returns a list of question objects with
+        category and question fields.
+
+        Args:
+            jd_text: Raw job description text
+            resume_version: Candidate resume snapshot stored on Application
+
+        Returns:
+            [
+                {"category": "Technical", "question": "..."},
+                ...
+            ]
+        """
+        # Build a concise resume summary from the snapshot
+        personal = resume_version.get('personal_info', {})
+        name = personal.get('name', 'The candidate')
+        skills = [s.get('name', '') for s in resume_version.get('skills', [])[:12] if s.get('name')]
+        projects = [p.get('title', '') for p in resume_version.get('projects', [])[:5] if p.get('title')]
+        experience = [
+            f"{e.get('role', '')} at {e.get('company', '')}"
+            for e in resume_version.get('experience', [])[:4]
+            if e.get('role')
+        ]
+        education = [
+            f"{e.get('degree', '')} from {e.get('institution', '')}"
+            for e in resume_version.get('education', [])[:2]
+            if e.get('degree')
+        ]
+
+        resume_summary = f"""
+Candidate: {name}
+Skills: {', '.join(skills) if skills else 'Not listed'}
+Experience: {' | '.join(experience) if experience else 'Not listed'}
+Projects: {', '.join(projects) if projects else 'Not listed'}
+Education: {', '.join(education) if education else 'Not listed'}
+""".strip()
+
+        prompt = f"""
+You are a technical recruiter preparing for a candidate interview.
+Based on the job description and candidate resume below, generate targeted interview questions.
+
+### JOB DESCRIPTION ###
+{jd_text[:3000]}
+
+### CANDIDATE RESUME SUMMARY ###
+{resume_summary}
+
+### INSTRUCTIONS ###
+- Generate exactly 10 interview questions
+- Cover these categories: Technical Skills, Past Experience, Problem Solving, Behavioral, Gap Probing
+- Each question must be specific to this candidate's background and the role requirements
+- Gap Probing questions should address areas where the candidate's experience may not fully match the JD
+- Questions should be concise and open-ended
+
+### OUTPUT FORMAT ###
+Return a JSON array only:
+[
+  {{"category": "Technical Skills", "question": "..."}},
+  {{"category": "Past Experience", "question": "..."}},
+  {{"category": "Problem Solving", "question": "..."}},
+  {{"category": "Behavioral", "question": "..."}},
+  {{"category": "Gap Probing", "question": "..."}}
+]
+
+Output JSON array only, no explanation:
+"""
+        response_text = self._call_llm_with_gemma_only(prompt)
+        clean = response_text.strip()
+
+        # strip markdown fences if present
+        if clean.startswith('```'):
+            clean = re.sub(r'^```(?:json)?', '', clean, flags=re.IGNORECASE).strip()
+        if clean.endswith('```'):
+            clean = clean[:clean.rfind('```')].strip()
+
+        start = clean.find('[')
+        end = clean.rfind(']') + 1
+        if start == -1 or end <= start:
+            raise ValueError("No JSON array found in LLM response for interview questions")
+
+        questions = json.loads(clean[start:end])
+        if not isinstance(questions, list):
+            raise ValueError("Expected a list of questions")
+
+        # normalise keys
+        result = []
+        for q in questions:
+            if isinstance(q, dict) and q.get('question'):
+                result.append({
+                    'category': str(q.get('category', 'General')),
+                    'question': str(q.get('question', '')),
+                })
+        return result
+
+    def generate_practice_questions(
+        self,
+        jd_text: str,
+        resume_version: Dict[str, Any],
+    ) -> List[Dict[str, str]]:
+        """
+        Generate practice preparation prompts for a shortlisted candidate.
+        Written from the candidate's POV — things they should prepare to talk about.
+        Uses only Gemma model.
+
+        Returns:
+            [{"category": "Technical Topics", "question": "..."}, ...]
+        """
+        personal = resume_version.get('personal_info', {})
+        name = personal.get('name', 'You')
+        skills = [s.get('name', '') for s in resume_version.get('skills', [])[:12] if s.get('name')]
+        projects = [p.get('title', '') for p in resume_version.get('projects', [])[:5] if p.get('title')]
+        experience = [
+            f"{e.get('role', '')} at {e.get('company', '')}"
+            for e in resume_version.get('experience', [])[:4]
+            if e.get('role')
+        ]
+        education = [
+            f"{e.get('degree', '')} from {e.get('institution', '')}"
+            for e in resume_version.get('education', [])[:2]
+            if e.get('degree')
+        ]
+
+        resume_summary = f"""
+Candidate: {name}
+Skills: {', '.join(skills) if skills else 'Not listed'}
+Experience: {' | '.join(experience) if experience else 'Not listed'}
+Projects: {', '.join(projects) if projects else 'Not listed'}
+Education: {', '.join(education) if education else 'Not listed'}
+""".strip()
+
+        prompt = f"""
+You are a career coach helping a candidate prepare for an upcoming job interview where they have been shortlisted.
+Based on the job description and candidate's background, generate practical preparation prompts.
+
+### JOB DESCRIPTION ###
+{jd_text[:3000]}
+
+### CANDIDATE BACKGROUND ###
+{resume_summary}
+
+### INSTRUCTIONS ###
+- Generate exactly 10 preparation prompts written directly to the candidate (use "you" / "your")
+- Cover these categories: Technical Topics, Experience Stories, Scenarios to Prepare, Role Research, Questions to Ask
+- Each prompt should tell the candidate what to study, prepare, or think about before the interview
+- Highlight areas where the JD requires skills the candidate should brush up on
+- "Questions to Ask" items are smart questions the candidate should ask the interviewer
+
+### OUTPUT FORMAT ###
+Return a JSON array only:
+[
+  {{"category": "Technical Topics", "question": "..."}},
+  {{"category": "Experience Stories", "question": "..."}},
+  {{"category": "Scenarios to Prepare", "question": "..."}},
+  {{"category": "Role Research", "question": "..."}},
+  {{"category": "Questions to Ask", "question": "..."}}
+]
+
+Output JSON array only, no explanation:
+"""
+        response_text = self._call_llm_with_gemma_only(prompt)
+        clean = response_text.strip()
+
+        if clean.startswith('```'):
+            clean = re.sub(r'^```(?:json)?', '', clean, flags=re.IGNORECASE).strip()
+        if clean.endswith('```'):
+            clean = clean[:clean.rfind('```')].strip()
+
+        start = clean.find('[')
+        end = clean.rfind(']') + 1
+        if start == -1 or end <= start:
+            raise ValueError("No JSON array found in LLM response for practice questions")
+
+        questions = json.loads(clean[start:end])
+        if not isinstance(questions, list):
+            raise ValueError("Expected a list of practice questions")
+
+        result = []
+        for q in questions:
+            if isinstance(q, dict) and q.get('question'):
+                result.append({
+                    'category': str(q.get('category', 'General')),
+                    'question': str(q.get('question', '')),
+                })
+        return result
+
 
 # Singleton instance
 llm_service = LLMService()

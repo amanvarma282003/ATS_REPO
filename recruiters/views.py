@@ -200,3 +200,48 @@ class RecruiterApplicationDownloadView(APIView):
             as_attachment=True,
             filename=filename
         )
+
+
+class InterviewQuestionsView(APIView):
+    """
+    POST /recruiter/applications/{pk}/interview-questions/
+    Generates (or returns cached) interview questions for a SHORTLIST application.
+    Only the recruiter who owns the job can access this.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        import logging
+        logger = logging.getLogger(__name__)
+
+        application = get_object_or_404(Application, pk=pk)
+
+        if not request.user.is_recruiter or application.job.recruiter != request.user:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        decision = (application.match_explanation or {}).get('decision', '')
+        if decision != 'SHORTLIST':
+            return Response(
+                {'error': 'Interview questions are only generated for shortlisted candidates.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Return cached if already generated
+        if application.interview_questions:
+            return Response({'questions': application.interview_questions})
+
+        try:
+            from llm_service.gemini_service import llm_service
+            questions = llm_service.generate_interview_questions(
+                jd_text=application.job.description,
+                resume_version=application.resume_version or {},
+            )
+            application.interview_questions = questions
+            application.save(update_fields=['interview_questions'])
+            return Response({'questions': questions})
+        except Exception as exc:
+            logger.error(f'Interview question generation failed for application {pk}: {exc}')
+            return Response(
+                {'error': f'Failed to generate questions: {str(exc)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

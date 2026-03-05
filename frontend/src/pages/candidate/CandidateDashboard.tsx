@@ -39,10 +39,57 @@ const CandidateDashboard: React.FC = () => {
   const [resumeHistory, setResumeHistory] = useState<GeneratedResumeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [practiceQuestionsMap, setPracticeQuestionsMap] = useState<Record<number, { category: string; question: string }[]>>({});
+  const [practiceLoadingSet, setPracticeLoadingSet] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadData();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadData();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
+
+  // Whenever applications list updates, auto-trigger practice questions for new shortlists
+  useEffect(() => {
+    if (applications.length === 0) return;
+    // Pre-fill from cached field first
+    applications.forEach((a) => {
+      if ((a.practice_questions?.length ?? 0) > 0) {
+        setPracticeQuestionsMap((prev) =>
+          prev[a.id] ? prev : { ...prev, [a.id]: a.practice_questions }
+        );
+      }
+    });
+    const toFetch = applications.filter(
+      (a) =>
+        a.status === 'SHORTLISTED' &&
+        (a.practice_questions?.length ?? 0) === 0
+    );
+    if (toFetch.length === 0) return;
+    setPracticeLoadingSet((prev) => {
+      const next = new Set(prev);
+      toFetch.forEach((a) => next.add(a.id));
+      return next;
+    });
+    toFetch.forEach((app) => {
+      candidateService.getPracticeQuestions(app.id)
+        .then((data) => {
+          setPracticeQuestionsMap((prev) => ({ ...prev, [app.id]: data.questions }));
+        })
+        .catch((err) => {
+          console.error(`Practice questions failed for app ${app.id}:`, err?.response?.data || err?.message || err);
+        })
+        .finally(() => {
+          setPracticeLoadingSet((prev) => {
+            const next = new Set(prev);
+            next.delete(app.id);
+            return next;
+          });
+        });
+    });
+  }, [applications]);
 
   const loadData = async () => {
     setLoading(true);
@@ -260,6 +307,52 @@ const CandidateDashboard: React.FC = () => {
           )}
         </section>
       </div>
+
+      {applications.some((a) => a.status === 'SHORTLISTED') && (
+        <div className="interview-prep-grid">
+          {applications
+            .filter((a) => a.status === 'SHORTLISTED')
+            .map((app) => {
+              const qs = practiceQuestionsMap[app.id] ?? [];
+              const isLoading = practiceLoadingSet.has(app.id);
+              const categories = qs.reduce((acc: string[], q) =>
+                acc.includes(q.category) ? acc : [...acc, q.category], []);
+              return (
+                <section key={app.id} className="insight-card prep-card">
+                  <header>
+                    <div>
+                      <p className="insight-kicker">Interview Prep</p>
+                      <h2>{app.job_title}</h2>
+                      <p className="prep-company">{app.job_company}</p>
+                    </div>
+                    <span className="status-badge status--shortlisted">Shortlisted</span>
+                  </header>
+                  {isLoading ? (
+                    <div className="prep-loading">
+                      <span className="prep-spinner" />
+                      Making your practice questions...
+                    </div>
+                  ) : qs.length === 0 ? (
+                    <p className="empty-state">Could not load practice questions. Please refresh.</p>
+                  ) : (
+                    <div className="prep-questions">
+                      {categories.map((cat) => (
+                        <div key={cat} className="prep-category">
+                          <h5>{cat}</h5>
+                          <ol>
+                            {qs.filter((q) => q.category === cat).map((q, i) => (
+                              <li key={i}>{q.question}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+        </div>
+      )}
 
       <div className="highlight-grid">
         <section className="highlight-card">
