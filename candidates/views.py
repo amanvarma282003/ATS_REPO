@@ -684,7 +684,8 @@ class ForYouResourcesView(APIView):
             'threshold', 'similarity', 'score', 'below', 'best', 'the',
             'is', 'met', 'further', 'partially', 'requiring', 'improvement',
             'adoption', 'design', 'path', 'platform', 'capability', 'sharing',
-            'collaboration', 'infrastructure', 'usability',
+            'collaboration', 'infrastructure', 'usability', 'with', 'that',
+            'this', 'from', 'have', 'been', 'will', 'your', 'their', 'work',
         }
 
         try:
@@ -692,35 +693,66 @@ class ForYouResourcesView(APIView):
         except Exception:
             return Response({'gaps': []})
 
+        seen = set()
+        keywords = []  # list of (search_term, display_label)
+
+        # 1. Skills — highest signal, use full skill name as search term
+        for cs in profile.candidate_skills.select_related('skill').all():
+            name = cs.skill.name.strip()
+            lname = name.lower()
+            if lname not in seen and len(lname) > 2:
+                seen.add(lname)
+                keywords.append((name, name))
+
+        # 2. Preferred roles
+        for role in (profile.preferred_roles or []):
+            role = role.strip()
+            lrole = role.lower()
+            if lrole not in seen and len(lrole) > 2:
+                seen.add(lrole)
+                keywords.append((role, role))
+
+        # 3. Experience roles
+        for exp in (profile.experience or []):
+            role = str(exp.get('role', '')).strip()
+            lrole = role.lower()
+            if lrole not in seen and len(lrole) > 2:
+                seen.add(lrole)
+                keywords.append((role, role))
+
+        # 4. Project titles — extract individual meaningful words
+        for proj in profile.projects.all():
+            words = re.findall(r'[A-Za-z][A-Za-z0-9+#.]*', proj.title)
+            for w in words:
+                lw = w.lower()
+                if lw not in NOISE and lw not in seen and len(lw) > 3:
+                    seen.add(lw)
+                    keywords.append((w, proj.title))
+
+        # 5. Supplement with gap phrases from recent applications (bonus signal)
         from recruiters.models import Application
         apps = Application.objects.filter(candidate=profile).order_by('-applied_at')[:10]
-        if not apps.exists():
-            return Response({'gaps': []})
-
-        # collect gap phrases then extract searchable keywords from each
-        gap_entries = []
-        seen_topics = set()
-
         for app in apps:
             raw_gaps = (app.match_explanation or {}).get('gaps', [])
             for gap in raw_gaps:
                 gap = gap.strip()
                 if not gap or 'no evidence' in gap.lower():
                     continue
-                # extract meaningful words (length > 3, not noise)
                 words = re.findall(r'[A-Za-z][A-Za-z0-9+#.]*', gap)
                 for w in words:
                     lw = w.lower()
-                    if lw not in NOISE and len(lw) > 3 and lw not in seen_topics:
-                        seen_topics.add(lw)
-                        gap_entries.append((w, gap))
-                        break  # one keyword per gap phrase
+                    if lw not in NOISE and lw not in seen and len(lw) > 3:
+                        seen.add(lw)
+                        keywords.append((w, gap))
+                        break
 
-        if not gap_entries:
+        if not keywords:
             return Response({'gaps': []})
 
         result = []
-        for keyword, label in gap_entries[:8]:
+        for keyword, label in keywords:
+            if len(result) >= 8:
+                break
             resources = LearningResource.objects.filter(
                 Q(title__icontains=keyword) | Q(category__icontains=keyword)
             )[:6]
