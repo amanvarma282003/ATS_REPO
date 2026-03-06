@@ -778,6 +778,7 @@ class PracticeQuestionsView(APIView):
         logger = logging.getLogger(__name__)
 
         from recruiters.models import Application
+        from rest_framework import status as drf_status
 
         try:
             application = Application.objects.get(
@@ -785,31 +786,38 @@ class PracticeQuestionsView(APIView):
                 candidate__user=request.user,
             )
         except Application.DoesNotExist:
-            from rest_framework import status as drf_status
+            logger.warning(
+                f'PracticeQuestionsView: application {application_id} not found for user {request.user.id}'
+            )
             return Response({'error': 'Not found'}, status=drf_status.HTTP_404_NOT_FOUND)
 
-        decision = (application.match_explanation or {}).get('decision', '')
-        if decision != 'SHORTLIST':
-            from rest_framework import status as drf_status
+        if application.status != Application.Status.SHORTLISTED:
+            logger.info(
+                f'PracticeQuestionsView: application {application_id} status={application.status!r} '
+                f'(not SHORTLISTED) — returning 400'
+            )
             return Response(
                 {'error': 'Practice questions are only available for shortlisted applications.'},
                 status=drf_status.HTTP_400_BAD_REQUEST,
             )
 
         if application.practice_questions:
+            logger.info(f'PracticeQuestionsView: returning cached questions for application {application_id}')
             return Response({'questions': application.practice_questions})
 
         try:
             from llm_service.gemini_service import llm_service
+            logger.info(f'PracticeQuestionsView: generating questions for application {application_id}')
             questions = llm_service.generate_practice_questions(
                 jd_text=application.job.description,
                 resume_version=application.resume_version or {},
             )
             application.practice_questions = questions
             application.save(update_fields=['practice_questions'])
+            logger.info(f'PracticeQuestionsView: generated {len(questions)} questions for application {application_id}')
             return Response({'questions': questions})
         except Exception as exc:
-            logger.error(f'Practice question generation failed for application {application_id}: {exc}')
+            logger.error(f'PracticeQuestionsView: generation failed for application {application_id}: {exc}', exc_info=True)
             from rest_framework import status as drf_status
             return Response(
                 {'error': f'Failed to generate questions: {str(exc)}'},
