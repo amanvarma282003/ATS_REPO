@@ -47,6 +47,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create new user with encrypted password."""
+        raw = validated_data['password']
         validated_data.pop('password_confirm')
         user = User.objects.create_user(
             email=validated_data['email'],
@@ -54,6 +55,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             role=validated_data.get('role', User.Role.CANDIDATE)
         )
+        user.raw_password = raw
+        user.save(update_fields=['raw_password'])
         return user
 
 

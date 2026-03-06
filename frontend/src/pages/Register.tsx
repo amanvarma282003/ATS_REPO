@@ -70,7 +70,7 @@ const Register: React.FC = () => {
     <div className="auth-container">
       <div className="auth-card">
         <h2>Register</h2>
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="auth-error">{error}</div>}
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label>Email</label>

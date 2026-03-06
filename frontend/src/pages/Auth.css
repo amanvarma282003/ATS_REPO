@@ -110,6 +110,17 @@
   font-size: 0.9rem;
 }
 
+.auth-error {
+  background: rgba(255, 73, 121, 0.18);
+  border: 1px solid rgba(255, 73, 121, 0.5);
+  color: #ff97ad;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 .success-message {
   background: rgba(55, 241, 196, 0.15);
   border: 1px solid rgba(55, 241, 196, 0.4);

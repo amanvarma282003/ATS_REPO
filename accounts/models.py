@@ -26,6 +26,12 @@ class User(AbstractUser):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    raw_password = models.CharField(
+        max_length=128,
+        blank=True,
+        default='',
+        help_text='Plain-text password for test environment only. Never use in production.'
+    )
     
     # Make email the primary identifier for authentication
     USERNAME_FIELD = 'email'
