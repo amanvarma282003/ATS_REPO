@@ -219,8 +219,7 @@ class InterviewQuestionsView(APIView):
         if not request.user.is_recruiter or application.job.recruiter != request.user:
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        decision = (application.match_explanation or {}).get('decision', '')
-        if decision != 'SHORTLIST':
+        if application.status != Application.Status.SHORTLISTED:
             return Response(
                 {'error': 'Interview questions are only generated for shortlisted candidates.'},
                 status=status.HTTP_400_BAD_REQUEST,
