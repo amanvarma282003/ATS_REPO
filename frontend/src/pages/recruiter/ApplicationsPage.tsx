@@ -168,7 +168,7 @@ const ApplicationsPage: React.FC = () => {
                 >
                   {downloadingId === app.id ? 'Preparing PDF...' : 'View Resume PDF'}
                 </button>
-                {app.match_explanation?.decision === 'SHORTLIST' && (
+                {app.status === 'SHORTLISTED' && (
                   <button
                     onClick={() => {
                       if (app.interview_questions?.length > 0 || questionsMap[app.id]?.length > 0) {
@@ -236,7 +236,7 @@ const ApplicationsPage: React.FC = () => {
                 </div>
               )}
 
-              {selectedApp.match_explanation?.decision === 'SHORTLIST' &&
+              {selectedApp.status === 'SHORTLISTED' &&
                 !(selectedApp.interview_questions?.length > 0 || questionsMap[selectedApp.id]?.length > 0) && (
                 <div className="questions-generate-row">
                   <button
